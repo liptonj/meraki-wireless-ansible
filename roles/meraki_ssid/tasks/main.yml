@@ -1,7 +1,110 @@
 ---
-# Meraki SSID Role - Main Tasks
-# Handles SSID creation, modification, and deletion
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - meraki_api_key | length > 0
+      - meraki_org_id | length > 0
+      - meraki_network_id | length > 0
+      - meraki_ssid_configs | length > 0
+    fail_msg: >-
+      Missing required variables. Ensure MERAKI_DASHBOARD_API_KEY,
+      meraki_org_id, meraki_network_id, and meraki_ssid_configs are set.
+    quiet: true
+  tags:
+    - ssid
+    - validate
 
-- name: SSID management tasks
-  debug:
-    msg: "SSID management tasks to be implemented"
+- name: Display SSID deployment plan
+  ansible.builtin.debug:
+    msg: "Will configure {{ meraki_ssid_configs | length }} SSID(s) on network {{ meraki_network_id }}"
+  tags:
+    - ssid
+
+- name: Get current SSIDs from Meraki
+  cisco.meraki.networks_wireless_ssids_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: current_ssids_result
+  retries: "{{ meraki_ssid_api_retries }}"
+  delay: "{{ meraki_ssid_api_retry_delay }}"
+  until: current_ssids_result is not failed
+  tags:
+    - ssid
+    - gather
+
+- name: Find matching SSID slot for each desired SSID
+  ansible.builtin.set_fact:
+    ssid_slot_map: >-
+      {{
+        ssid_slot_map | default([]) + [{
+          'config': item,
+          'number': (current_ssids_result.meraki_response | default([])
+            | selectattr('name', 'equalto', item.name)
+            | map(attribute='number') | first
+            | default(
+              current_ssids_result.meraki_response | default([])
+              | selectattr('name', 'match', '^Unconfigured SSID')
+              | map(attribute='number') | first
+              | default(-1)
+            ))
+        }]
+      }}
+  loop: "{{ meraki_ssid_configs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ssid
+
+- name: Configure SSIDs on Meraki network
+  cisco.meraki.networks_wireless_ssids:
+    networkId: "{{ meraki_network_id }}"
+    number: "{{ item.number }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+    name: "{{ item.config.name }}"
+    enabled: "{{ item.config.enabled | default(true) }}"
+    authMode: "{{ item.config.authMode | default('psk') }}"
+    encryptionMode: "{{ item.config.encryptionMode | default('wpa2') }}"
+    psk: "{{ item.config.psk | default(omit) }}"
+    wpaEncryptionMode: "{{ item.config.wpaEncryptionMode | default(omit) }}"
+    minBitrate: "{{ item.config.minBitrate | default(omit) }}"
+    bandSelection: "{{ item.config.bandSelection | default(omit) }}"
+    perClientBandwidthLimitUp: "{{ item.config.perClientBandwidthLimitUp | default(omit) }}"
+    perClientBandwidthLimitDown: "{{ item.config.perClientBandwidthLimitDown | default(omit) }}"
+    visible: "{{ item.config.visible | default(true) }}"
+    availableOnAllAps: "{{ item.config.availableOnAllAps | default(true) }}"
+    splashPage: "{{ item.config.splashPage | default(omit) }}"
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }} -> slot {{ item.number }}"
+  when: item.number >= 0
+  retries: "{{ meraki_ssid_api_retries }}"
+  delay: "{{ meraki_ssid_api_retry_delay }}"
+  register: ssid_results
+  notify: log ssid changes
+  tags:
+    - ssid
+    - configure
+
+- name: Display SSID deployment results
+  ansible.builtin.debug:
+    msg: >-
+      SSID "{{ item.config.name }}" configured successfully
+      on slot {{ item.number }}
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when: item.number >= 0
+  tags:
+    - ssid
+
+- name: Warn about SSIDs that could not be assigned a slot
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: SSID "{{ item.config.name }}" could not be assigned a slot.
+      All 15 SSID slots may be in use. Free a slot in Meraki Dashboard first.
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when: item.number < 0
+  tags:
+    - ssid
