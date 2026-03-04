@@ -39,7 +39,7 @@
 - name: Find desired SSID configuration for this network
   ansible.builtin.set_fact:
     desired_config: "{{ meraki_desired_ssids | selectattr('network_name', 'equalto', inventory_hostname) | selectattr('network_id', 'equalto', current_network_id) | first | default({}) }}"
-  when: 
+  when:
     - meraki_desired_ssids is defined
     - meraki_desired_ssids | length > 0
 
@@ -73,7 +73,7 @@
   vars:
     current_ssid: "{{ item }}"
     desired_ssid: "{{ desired_config.ssids | default([]) | selectattr('name', 'equalto', item.name | default('')) | first | default({}) }}"
-    
+
     # Compare each field and build differences
     enabled_diff: "{{ {'current': current_ssid.enabled | default(false), 'desired': desired_ssid.enabled | default(current_ssid.enabled | default(false))} if (desired_ssid.enabled | default(current_ssid.enabled | default(false))) != (current_ssid.enabled | default(false)) else {} }}"
     authMode_diff: "{{ {'current': current_ssid.authMode | default('unknown'), 'desired': desired_ssid.authMode | default(current_ssid.authMode | default('unknown'))} if (desired_ssid.authMode | default(current_ssid.authMode | default('unknown'))) != (current_ssid.authMode | default('unknown')) else {} }}"
@@ -82,7 +82,7 @@
     broadcast_diff: "{{ {'current': current_ssid.broadcast | default(false), 'desired': desired_ssid.broadcast | default(current_ssid.broadcast | default(false))} if (desired_ssid.broadcast | default(current_ssid.broadcast | default(false))) != (current_ssid.broadcast | default(false)) else {} }}"
     minBitrate_diff: "{{ {'current': current_ssid.minBitrate | default(0), 'desired': desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0))} if (desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0))) != (current_ssid.minBitrate | default(0)) else {} }}"
     bandSelection_diff: "{{ {'current': current_ssid.bandSelection | default('unknown'), 'desired': desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown'))} if (desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown'))) != (current_ssid.bandSelection | default('unknown')) else {} }}"
-    
+
     # Combine all differences into a single dict
     ssid_differences: >-
       {{
@@ -96,10 +96,10 @@
           (['bandSelection', bandSelection_diff] if bandSelection_diff | length > 0 else [])
         ) | select('length') | list | dict
       }}
-    
+
     # Determine if SSID is compliant (has desired config AND matches)
     ssid_compliant: "{{ (desired_ssid | length > 0) and (ssid_differences | length == 0) }}"
-    
+
     # Build SSID check result
     ssid_check_result:
       name: "{{ current_ssid.name | default('Unknown') }}"
@@ -116,7 +116,7 @@
       compliant: "{{ ssid_compliant }}"
       drift_detected: "{{ (desired_ssid | length > 0) and (ssid_differences | length > 0) }}"
       differences: "{{ ssid_differences }}"
-  when: 
+  when:
     - current_ssids.meraki_response is defined
     - current_ssids.meraki_response | length > 0
   tags:
@@ -174,10 +174,10 @@
   ansible.builtin.debug:
     msg: |
       DRIFT DETECTED in {{ inventory_hostname }}!
-      
+
       Network: {{ network_compliance.network_name }}
       SSIDs with drift: {{ network_compliance.drift_count }}
-      
+
       {% for ssid in network_compliance.ssids %}
       {% if ssid.drift_detected %}
       SSID "{{ ssid.name }}" (Number {{ ssid.number }}):
@@ -186,7 +186,7 @@
         {% endfor %}
       {% endif %}
       {% endfor %}
-      
+
       Run without --check to see full compliance report.
   when:
     - ansible_check_mode

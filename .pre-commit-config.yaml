@@ -19,30 +19,30 @@ repos:
       # Remove trailing whitespace
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-      
+
       # Ensure files end with newline
       - id: end-of-file-fixer
-      
+
       # Check YAML syntax
       - id: check-yaml
         args: [--unsafe]  # Allow custom tags for Ansible
-      
+
       # Check JSON syntax
       - id: check-json
-      
+
       # Prevent committing large files
       - id: check-added-large-files
         args: [--maxkb=1000]
-      
+
       # Check for merge conflicts
       - id: check-merge-conflict
-      
+
       # Check for debug statements (print, pdb, etc.)
       - id: debug-statements
-      
+
       # Check for files that would conflict in case-insensitive filesystems
       - id: check-case-conflict
-      
+
       # Ensure shell scripts have proper shebang
       - id: check-shebang-scripts-are-executable
 

@@ -1,8 +1,8 @@
 ---
 # Meraki Wireless Compliance Check Playbook
-# 
+#
 # Purpose: Detect configuration drift and generate compliance reports
-# 
+#
 # This playbook:
 # 1. Gathers current SSID configurations from Meraki Dashboard
 # 2. Compares against desired state defined in group_vars
@@ -30,12 +30,12 @@
 - name: Meraki Wireless Compliance Check
   hosts: meraki_networks
   gather_facts: true
-  
+
   vars:
     # Output directory for compliance reports
     compliance_report_dir: "{{ playbook_dir }}/../reports"
     compliance_report_filename: "compliance_report_{{ ansible_date_time.epoch }}.md"
-    
+
   pre_tasks:
     - name: Ensure reports directory exists
       ansible.builtin.file:
@@ -51,7 +51,7 @@
       vars:
         # Pass desired state from group_vars to role
         desired_ssid_configs: "{{ meraki_desired_ssids | default([]) }}"
-        
+
   post_tasks:
     - name: Display compliance summary
       ansible.builtin.debug:
