@@ -1,7 +1,7 @@
 ---
-# Sandbox Environment Variables
-# These variables override group_vars/all.yml for the sandbox/test environment
-# Use this for test organizations or dedicated lab networks
+# SSID Deployment Config — applies to hosts in the `meraki_orgs` inventory group
+# (used by ssid_management.yml). Defines what SSIDs to deploy and environment-specific
+# settings for the sandbox.
 
 # ============================================================================
 # Environment Identification

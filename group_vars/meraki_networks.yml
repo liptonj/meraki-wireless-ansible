@@ -1,6 +1,7 @@
 ---
-# Desired SSID state for compliance checking
-# This is the "source of truth" — any deviation is flagged as drift
+# Compliance Desired State — applies to hosts in the `meraki_networks` inventory group
+# (used by compliance_check.yml and config_snapshot.yml). Defines what SSIDs SHOULD look like.
+# Any deviation from this is flagged as configuration drift.
 
 meraki_desired_ssids:
   - network_name: "sandbox_network"
