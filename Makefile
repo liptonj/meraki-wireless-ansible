@@ -84,3 +84,20 @@ clean:
 		rm -rf venv; \
 	fi
 	@echo "✅ Cleanup complete!"
+
+## Run SSID deployment playbook (syntax check only)
+deploy-ssid-check:
+	ansible-playbook --syntax-check playbooks/ssid_management.yml
+
+## Run compliance check (syntax check only)
+compliance-check:
+	ansible-playbook --syntax-check playbooks/compliance_check.yml
+
+## Syntax check all playbooks including new ones
+test-all:
+	@echo "Checking all playbooks..."
+	@for playbook in playbooks/*.yml; do \
+		echo "Checking: $$playbook"; \
+		ansible-playbook --syntax-check "$$playbook" || exit 1; \
+	done
+	@echo "All playbooks passed syntax check"
