@@ -76,9 +76,9 @@ ansible-playbook playbooks/ssid_management.yml
 
 ## 📚 Documentation
 
-- **[Getting Started](docs/GETTING_STARTED.md)** - Detailed setup guide with DevNet Sandbox instructions
-- **[Architecture](docs/ARCHITECTURE.md)** - Project structure and data flow explanation
-- **[Group Policy Drift Detection](docs/GROUP_POLICY_DRIFT.md)** - Configuration drift monitoring and remediation
+- **[Getting Started](docs/GETTING_STARTED.md)** - Setup guide with GitHub Actions configuration
+- **[Architecture](docs/ARCHITECTURE.md)** - Project structure and data flow
+- **[Compliance](docs/COMPLIANCE.md)** - SSID compliance checking and security baselines
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common errors and solutions
 - **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
 
@@ -86,19 +86,18 @@ ansible-playbook playbooks/ssid_management.yml
 
 ### Playbooks
 
-- **`ssid_management.yml`** - Create, update, and manage wireless SSIDs across networks
-- **`bulk_ap_deploy.yml`** - Deploy and configure multiple access points simultaneously
-- **`compliance_check.yml`** - Validate network configurations against compliance standards
-- **`group_policy_drift.yml`** - Detect and remediate group policy configuration drift
+- **`ssid_management.yml`** - Deploy and configure wireless SSIDs across networks
+- **`compliance_check.yml`** - Validate SSID configurations against desired state and security baselines
+- **`config_snapshot.yml`** - Capture live Meraki config and store as GitOps baseline
 
 ### Key Features
 
+- ✅ **GitOps for Wireless** - Config stored in Git, drift detected automatically
+- ✅ **Security Baselines** - No open auth, WPA2 minimum, guest bandwidth limits
+- ✅ **Automated Alerting** - GitHub Issues + Webex Teams on compliance violations
+- ✅ **CI/CD Native** - Everything runs in GitHub Actions (deploy, check, alert, snapshot)
 - ✅ **Idempotent Operations** - Safe to run multiple times
-- ✅ **Configuration Drift Detection** - Maintain source of truth for group policies
 - ✅ **Environment-Aware** - Separate configs for sandbox and production
-- ✅ **Secure** - API keys stored in Ansible Vault
-- ✅ **Beginner-Friendly** - Clear documentation and examples
-- ✅ **Production-Ready** - Follows Ansible best practices
 
 ## 🛠️ Available Commands
 
@@ -114,24 +113,29 @@ make clean      # Remove virtual environment
 
 ```
 meraki-wireless-ansible/
+├── .github/workflows/  # GitHub Actions CI/CD
+│   ├── validate.yml        # Lint, syntax check, security scan
+│   ├── deploy-ssids.yml    # SSID deployment workflow
+│   └── compliance.yml      # Compliance check + snapshot workflow
 ├── playbooks/          # Main Ansible playbooks
 │   ├── ssid_management.yml
-│   ├── bulk_ap_deploy.yml
 │   ├── compliance_check.yml
-│   └── group_policy_drift.yml
+│   └── config_snapshot.yml
 ├── roles/              # Reusable Ansible roles
 │   ├── meraki_ssid/
-│   ├── meraki_devices/
 │   ├── meraki_compliance/
-│   └── meraki_group_policy_drift/
+│   └── meraki_snapshot/
 ├── inventory/          # Host and group definitions
 │   ├── sandbox.yml
-│   └── production.yml.example
+│   └── sandbox_compliance.yml
 ├── group_vars/         # Environment-specific variables
 │   ├── all.yml
-│   └── sandbox.yml
+│   ├── sandbox.yml
+│   └── meraki_networks.yml
+├── baselines/          # GitOps config snapshots (auto-updated)
 ├── vault/              # Encrypted secrets (Ansible Vault)
 │   └── secrets.yml.example
+├── reports/            # Generated compliance reports
 └── docs/               # Documentation
 ```
 

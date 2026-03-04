@@ -305,23 +305,6 @@ ansible-playbook playbooks/ssid_management.yml
 - Edit `group_vars/all.yml` or `group_vars/sandbox.yml` to define SSID settings
 - Variables are documented in `roles/meraki_ssid/defaults/main.yml`
 
-### Bulk AP Deployment Playbook
-
-Deploys and configures access points in bulk.
-
-```bash
-ansible-playbook playbooks/bulk_ap_deploy.yml
-```
-
-**What it does:**
-- Provisions multiple access points
-- Configures AP settings (name, tags, location)
-- Assigns APs to networks
-
-**Configuration:**
-- Define AP configurations in `group_vars/` files
-- See `roles/meraki_devices/defaults/main.yml` for available options
-
 ### Compliance Check Playbook
 
 Validates network configurations against compliance standards.
@@ -345,7 +328,7 @@ Now that you have the project set up:
 
 1. **Explore the Architecture** - Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand how everything connects
 2. **Customize Configuration** - Edit `group_vars/` files to match your needs
-3. **Run More Playbooks** - Try all three playbooks and see what they do
+3. **Run More Playbooks** - Try the SSID management and compliance check playbooks
 4. **Read Troubleshooting Guide** - Bookmark [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for when things go wrong
 5. **Contribute** - See [CONTRIBUTING.md](../CONTRIBUTING.md) to contribute improvements
 

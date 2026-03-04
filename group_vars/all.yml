@@ -113,69 +113,6 @@ meraki_ap_config:
     url: ""  # Optional: webhook URL for monitoring
 
 # ============================================================================
-# Group Policy Configuration - Source of Truth
-# ============================================================================
-
-# Group policies define bandwidth, VLAN, firewall rules, and other settings
-# that can be applied to individual clients or groups of clients.
-# These policies act as the "golden baseline" for drift detection.
-
-meraki_group_policies:
-  # Standard User Policy - Corporate employees with moderate bandwidth
-  - name: "Standard User Policy"
-    bandwidth:
-      settings: "custom"
-      bandwidthLimits:
-        limitUp: 10000    # 10 Mbps upload limit
-        limitDown: 50000  # 50 Mbps download limit
-    firewallAndTrafficShaping:
-      settings: "custom"
-      l3FirewallRules:
-        - comment: "Allow HTTP/HTTPS"
-          policy: "allow"
-          protocol: "tcp"
-          destPort: "80,443"
-          destCidr: "Any"
-        - comment: "Deny all other traffic"
-          policy: "deny"
-          protocol: "Any"
-          destPort: "Any"
-          destCidr: "Any"
-    splashAuthSettings: "bypass"
-    vlanTagging:
-      settings: "custom"
-      vlanId: "10"
-    bonjourForwarding:
-      settings: "disabled"
-  
-  # Guest Policy - Limited bandwidth for guest users
-  - name: "Guest Policy"
-    bandwidth:
-      settings: "custom"
-      bandwidthLimits:
-        limitUp: 1000     # 1 Mbps upload limit
-        limitDown: 5000   # 5 Mbps download limit
-    firewallAndTrafficShaping:
-      settings: "custom"
-      l3FirewallRules:
-        - comment: "Allow HTTP/HTTPS only"
-          policy: "allow"
-          protocol: "tcp"
-          destPort: "80,443"
-          destCidr: "Any"
-        - comment: "Deny all other traffic"
-          policy: "deny"
-          protocol: "Any"
-          destPort: "Any"
-          destCidr: "Any"
-    splashAuthSettings: "bypass"
-    vlanTagging:
-      settings: "custom"
-      vlanId: "100"
-    bonjourForwarding:
-      settings: "disabled"
-
-# ============================================================================
 # Compliance and Validation Settings
 # ============================================================================
 

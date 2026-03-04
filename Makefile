@@ -53,7 +53,6 @@ test:
 	@if [ -d "venv" ]; then \
 		. venv/bin/activate && \
 		ansible-playbook --syntax-check playbooks/ssid_management.yml && \
-		ansible-playbook --syntax-check playbooks/bulk_ap_deploy.yml && \
 		ansible-playbook --syntax-check playbooks/compliance_check.yml; \
 	else \
 		echo "⚠️  Virtual environment not found. Run 'make setup' first."; \
