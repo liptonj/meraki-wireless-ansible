@@ -1,0 +1,86 @@
+name: Deploy SSIDs
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'sandbox'
+        type: choice
+        options:
+          - sandbox
+          - production
+      dry_run:
+        description: 'Dry run (check mode only)'
+        required: true
+        default: true
+        type: boolean
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'group_vars/**'
+      - 'roles/meraki_ssid/**'
+      - 'playbooks/ssid_management.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy SSIDs to Meraki
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Deploy SSIDs
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
+          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
+        run: |
+          EXTRA_ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event_name }}" = "push" ]; then
+            echo "Running in CHECK MODE (dry run)"
+            EXTRA_ARGS="--check --diff"
+          else
+            echo "Running in LIVE MODE — SSIDs will be configured"
+          fi
+
+          ansible-playbook playbooks/ssid_management.yml \
+            -i inventory/sandbox.yml \
+            -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
+            -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
+            -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
+            -e "meraki_network_id=${MERAKI_NETWORK_ID}" \
+            $EXTRA_ARGS
+
+  compliance:
+    name: Post-Deploy Compliance Check
+    needs: deploy
+    if: github.event.inputs.dry_run != 'true'
+    uses: ./.github/workflows/compliance.yml
+    secrets: inherit
