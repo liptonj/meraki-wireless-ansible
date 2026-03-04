@@ -20,7 +20,9 @@ meraki-wireless-ansible/
 ├── .env.example               # Example environment variables
 ├── .github/
 │   └── workflows/
-│       └── validate.yml       # CI/CD validation workflow
+│       ├── validate.yml       # CI/CD validation workflow
+│       ├── deploy-ssids.yml   # SSID deployment workflow
+│       └── compliance.yml     # Compliance check + snapshot workflow
 ├── .pre-commit-config.yaml    # Pre-commit hooks configuration
 ├── ansible.cfg                # Ansible configuration file
 ├── Makefile                   # Development convenience commands
@@ -47,18 +49,27 @@ meraki-wireless-ansible/
 │   │   ├── defaults/
 │   │   │   └── main.yml       # Default variables for compliance
 │   │   ├── tasks/
-│   │   │   └── main.yml       # Compliance check tasks
+│   │   │   ├── main.yml       # Drift detection tasks
+│   │   │   └── security_baseline.yml  # Security baseline checks
 │   │   └── templates/
 │   │       └── compliance_report.md.j2  # Report template
 │   └── meraki_snapshot/       # GitOps config capture role
+│       ├── defaults/
+│       │   └── main.yml       # Snapshot defaults (fields, paths)
+│       └── tasks/
+│           └── main.yml       # Pull, filter, compare, save
 │
 ├── inventory/                 # Host and group definitions
-│   ├── sandbox.yml            # DevNet sandbox inventory
+│   ├── sandbox.yml            # DevNet sandbox inventory (meraki_orgs)
+│   ├── sandbox_compliance.yml # Compliance inventory (meraki_networks)
 │   └── production.yml.example # Production inventory template
 │
 ├── group_vars/                # Group-specific variables
 │   ├── all.yml                # Variables for all hosts
-│   └── sandbox.yml            # Sandbox-specific overrides
+│   ├── sandbox.yml            # Sandbox-specific overrides
+│   └── meraki_networks.yml    # Desired SSID state for compliance
+│
+├── baselines/                 # GitOps config snapshots (auto-updated)
 │
 ├── vault/                     # Encrypted secrets (Ansible Vault)
 │   └── secrets.yml.example    # Example vault file
@@ -473,8 +484,11 @@ roles:
 
 # playbooks/compliance_check.yml
 roles:
-  - meraki_ssid      # Reused!
   - meraki_compliance
+
+# playbooks/config_snapshot.yml
+roles:
+  - meraki_snapshot
 ```
 
 ### 4. Variable Layering
@@ -495,23 +509,22 @@ Roles use Ansible modules from the `cisco.meraki` collection:
 ```yaml
 # Example task
 - name: Get SSID information
-  cisco.meraki.networks_ssids_info:
-    api_key: "{{ meraki_api_key }}"
-    org_id: "{{ meraki_org_id }}"
-    network_id: "{{ network_id }}"
+  cisco.meraki.networks_wireless_ssids_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
   register: ssid_info
 ```
 
 ### Authentication Flow
 
 1. API key loaded from:
-   - `.env` file (via `python-dotenv`)
-   - Ansible Vault (`vault/secrets.yml`)
-   - Environment variables
+   - Environment variable `MERAKI_DASHBOARD_API_KEY`
+   - Ansible Vault (`vault/secrets.yml` as `vault_meraki_api_key`)
+   - GitHub Actions secrets (for CI/CD)
 
-2. Key passed to modules via `api_key` parameter
+2. Key passed to modules via `meraki_api_key` parameter
 
-3. Modules add header: `X-Cisco-Meraki-API-Key: {key}`
+3. Modules add header: `Authorization: Bearer {key}`
 
 4. Meraki API validates and processes request
 

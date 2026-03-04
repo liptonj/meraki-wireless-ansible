@@ -21,11 +21,8 @@
 
 - name: Gather current SSID configurations from Meraki
   cisco.meraki.networks_wireless_ssids_info:
-    auth_key: "{{ meraki_api_key }}"
-    org_name: "{{ meraki_org_name | default(omit) }}"
-    org_id: "{{ meraki_org_id | default(omit) }}"
-    network_name: "{{ inventory_hostname }}"
-    network_id: "{{ meraki_network_id | default(omit) }}"
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
   register: current_ssids
   failed_when: false
   changed_when: false
@@ -35,9 +32,9 @@
 
 - name: Get network ID from current SSIDs result
   ansible.builtin.set_fact:
-    current_network_id: "{{ current_ssids.network_id | default(meraki_network_id | default('unknown')) }}"
+    current_network_id: "{{ meraki_network_id | default('unknown') }}"
     current_network_name: "{{ inventory_hostname }}"
-  when: current_ssids.network_id is defined or meraki_network_id is defined
+  when: meraki_network_id is defined
 
 - name: Find desired SSID configuration for this network
   ansible.builtin.set_fact:
@@ -70,7 +67,7 @@
 - name: Check each current SSID against desired state
   ansible.builtin.set_fact:
     network_compliance: "{{ network_compliance | combine({'ssids': network_compliance.ssids + [ssid_check_result]}) }}"
-  loop: "{{ current_ssids.data | default([]) }}"
+  loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
   vars:
@@ -120,8 +117,8 @@
       drift_detected: "{{ (desired_ssid | length > 0) and (ssid_differences | length > 0) }}"
       differences: "{{ ssid_differences }}"
   when: 
-    - current_ssids.data is defined
-    - current_ssids.data | length > 0
+    - current_ssids.meraki_response is defined
+    - current_ssids.meraki_response | length > 0
   tags:
     - compliance
     - compare
@@ -202,8 +199,8 @@
   ansible.builtin.include_tasks: security_baseline.yml
   when:
     - security_baseline_enabled | default(true) | bool
-    - current_ssids.data is defined
-    - current_ssids.data | length > 0
+    - current_ssids.meraki_response is defined
+    - current_ssids.meraki_response | length > 0
   tags:
     - compliance
     - security

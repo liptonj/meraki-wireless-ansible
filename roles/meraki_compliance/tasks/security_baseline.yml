@@ -18,7 +18,7 @@
         'current_value': item.authMode | default('unknown'),
         'expected': 'psk, 8021x, or other authenticated mode'
       }] }}
-  loop: "{{ current_ssids.data | default([]) }}"
+  loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
   when:
@@ -41,7 +41,7 @@
         'current_value': item.encryptionMode | default('none'),
         'expected': 'wpa2 or higher'
       }] }}
-  loop: "{{ current_ssids.data | default([]) }}"
+  loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
   when:
@@ -65,7 +65,7 @@
         'current_value': 'Upload: ' + (item.perClientBandwidthLimitUp | default(0) | string) + ', Download: ' + (item.perClientBandwidthLimitDown | default(0) | string),
         'expected': 'Bandwidth limits > 0 for both upload and download'
       }] }}
-  loop: "{{ current_ssids.data | default([]) }}"
+  loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
   when:
@@ -90,7 +90,7 @@
         'current_value': 'visible: ' + (item.visible | default(false) | string),
         'expected': 'visible: false when SSID is disabled'
       }] }}
-  loop: "{{ current_ssids.data | default([]) }}"
+  loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
   when:

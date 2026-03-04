@@ -105,6 +105,7 @@ info "Test 3: Checking playbook syntax..."
 PLAYBOOKS=(
     "playbooks/ssid_management.yml"
     "playbooks/compliance_check.yml"
+    "playbooks/config_snapshot.yml"
 )
 
 SYNTAX_ERRORS=0
