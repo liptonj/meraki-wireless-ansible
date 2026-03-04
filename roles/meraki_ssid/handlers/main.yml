@@ -1,7 +1,4 @@
 ---
-# Meraki SSID Role - Handlers
-# Handlers for SSID-related events
-
-- name: restart wireless
-  debug:
-    msg: "Wireless restart handler to be implemented"
+- name: log ssid changes
+  ansible.builtin.debug:
+    msg: "SSID configuration changes have been applied to network {{ meraki_network_id }}"
