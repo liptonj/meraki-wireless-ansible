@@ -46,3 +46,15 @@ compliance_check_fields:
 meraki_api_key: "{{ lookup('env', 'MERAKI_API_KEY') | default('', true) }}"
 meraki_org_id: "{{ meraki_org_id | default(omit) }}"
 meraki_network_id: "{{ meraki_network_id | default(omit) }}"
+
+# Alerting configuration
+compliance_alerting_enabled: true
+
+# GitHub Issue alerting
+compliance_github_alert_enabled: true
+compliance_github_repo: ""
+compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
+
+# Webex Teams alerting
+compliance_webex_alert_enabled: true
+compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
