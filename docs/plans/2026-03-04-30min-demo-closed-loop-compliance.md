@@ -113,7 +113,7 @@ meraki-wireless-ansible/
 │   └── sandbox_compliance.yml
 ├── group_vars/         # Environment-specific variables
 │   ├── all.yml
-│   ├── sandbox.yml
+│   ├── meraki_orgs.yml
 │   └── meraki_networks.yml
 ├── baselines/          # GitOps config snapshots (auto-updated)
 ├── vault/              # Encrypted secrets (Ansible Vault)
