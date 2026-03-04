@@ -43,7 +43,7 @@ compliance_check_fields:
   - bandSelection
 
 # Meraki API Configuration (inherited from group_vars or environment)
-meraki_api_key: "{{ lookup('env', 'MERAKI_API_KEY') | default('', true) }}"
+meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
 meraki_org_id: "{{ meraki_org_id | default(omit) }}"
 meraki_network_id: "{{ meraki_network_id | default(omit) }}"
 

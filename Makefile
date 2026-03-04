@@ -2,7 +2,7 @@
 # Provides common development and deployment tasks
 # Beginner-friendly targets for YouTube tutorial viewers
 
-.PHONY: help setup lint test smoke-test clean
+.PHONY: help setup lint test smoke-test clean deploy-ssid-check compliance-check test-all
 
 # Default target - show help
 help:
@@ -53,7 +53,8 @@ test:
 	@if [ -d "venv" ]; then \
 		. venv/bin/activate && \
 		ansible-playbook --syntax-check playbooks/ssid_management.yml && \
-		ansible-playbook --syntax-check playbooks/compliance_check.yml; \
+		ansible-playbook --syntax-check playbooks/compliance_check.yml && \
+		ansible-playbook --syntax-check playbooks/config_snapshot.yml; \
 	else \
 		echo "⚠️  Virtual environment not found. Run 'make setup' first."; \
 		exit 1; \

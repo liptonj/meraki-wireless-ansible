@@ -1,28 +1,32 @@
-# Meraki Wireless Compliance and Drift Detection
+# Meraki Wireless Compliance and Security Baselines
 
-This document explains how to use the compliance checking and drift detection features for Meraki wireless networks.
+This document explains how to use the compliance checking, security baselines, and drift detection features for Meraki wireless networks.
 
 ## Overview
 
-The compliance check playbook compares actual SSID configurations in Meraki Dashboard against a desired state defined in `group_vars`. It detects configuration drift (manual changes made in Dashboard) and generates detailed compliance reports.
+The compliance system has two layers:
+
+1. **Drift Detection** — Compares actual SSID configurations in Meraki Dashboard against a desired state defined in `group_vars/meraki_networks.yml`. Detects manual changes made in Dashboard.
+2. **Security Baselines** — Policy checks applied to ALL enabled SSIDs regardless of desired state. Enforces minimum security standards (no open auth, WPA2 minimum, guest bandwidth limits).
+
+When violations are detected, alerts are sent via **GitHub Issues** and **Webex Teams** webhooks.
 
 ## Quick Start
 
 ### 1. Configure Desired State
 
-Define your desired SSID configurations in `group_vars/all.yml` or `group_vars/compliance.yml`:
+Define your desired SSID configurations in `group_vars/meraki_networks.yml`:
 
 ```yaml
 meraki_desired_ssids:
-  - network_name: "Corporate-Office"
-    network_id: "N_1234567890abcdef"
+  - network_name: "sandbox_network"
+    network_id: "{{ vault_meraki_network_id_1 }}"
     ssids:
-      - name: "Corporate"
+      - name: "Sandbox-Test"
         enabled: true
-        authMode: "8021x"
-        encryptionMode: "wpa2-eap"
+        authMode: "psk"
+        encryptionMode: "wpa2"
         visible: true
-        broadcast: true
         minBitrate: 11
         bandSelection: "Dual band operation"
 ```
@@ -30,167 +34,133 @@ meraki_desired_ssids:
 ### 2. Run Compliance Check
 
 ```bash
-# Basic compliance check
-ansible-playbook playbooks/compliance_check.yml
+# Run compliance check with the compliance inventory
+ansible-playbook playbooks/compliance_check.yml -i inventory/sandbox_compliance.yml
 
 # Dry-run mode (check for drift without changes)
-ansible-playbook playbooks/compliance_check.yml --check --diff
-
-# Check specific network
-ansible-playbook playbooks/compliance_check.yml --limit Corporate-Office
+ansible-playbook playbooks/compliance_check.yml -i inventory/sandbox_compliance.yml --check --diff
 ```
 
 ### 3. Review Report
 
-Compliance reports are saved to `reports/compliance_report_{timestamp}.md` with:
-- Executive summary (networks/SSIDs checked, compliant/non-compliant counts)
-- Per-network compliance matrix
-- Detailed drift detection showing current vs desired values
-- Remediation recommendations
+Compliance reports are saved to `reports/compliance_report_{timestamp}.md`.
 
-## Use Cases
+## Security Baseline Checks
 
-### Drift Detection
+Security baselines are defined in `roles/meraki_compliance/defaults/main.yml` and apply to all enabled SSIDs automatically:
 
-Detect when someone manually changes SSID settings in Meraki Dashboard:
+| Rule | Severity | Description |
+|------|----------|-------------|
+| `no_open_auth` | Critical | Enabled SSIDs must not use open authentication |
+| `minimum_encryption` | Critical | Enabled SSIDs must use WPA2 or higher encryption |
+| `guest_bandwidth_limits` | Warning | Guest SSIDs (matching `(?i)guest` pattern) must have bandwidth limits |
+| `disabled_ssid_broadcast` | Warning | Disabled SSIDs should not be broadcasting |
 
-```bash
-# Run check mode to see drift without generating full report
-ansible-playbook playbooks/compliance_check.yml --check
-```
+Critical violations trigger the alerting pipeline (GitHub Issues + Webex Teams).
 
-### Scheduled Compliance Checks
+### Customizing Security Rules
 
-Schedule daily compliance checks with cron:
-
-```bash
-# Add to crontab (runs daily at 2 AM)
-0 2 * * * cd /path/to/repo && ansible-playbook playbooks/compliance_check.yml >> /var/log/meraki_compliance.log 2>&1
-```
-
-### CI/CD Integration
-
-Integrate compliance checks into CI/CD pipelines:
+Override in `group_vars/meraki_networks.yml` or via extra vars:
 
 ```yaml
-# Example GitHub Actions workflow
-- name: Run Compliance Check
-  run: |
-    ansible-playbook playbooks/compliance_check.yml
-    # Fail build if non-compliant networks found
-    if grep -q "Non-Compliant" reports/compliance_report_*.md; then
-      exit 1
-    fi
+security_baseline_rules:
+  no_open_auth:
+    enabled: true
+    severity: "critical"
+  minimum_encryption:
+    enabled: true
+    severity: "critical"
+    minimum: "wpa2"
+  guest_bandwidth_limits:
+    enabled: true
+    severity: "warning"
+    guest_ssid_pattern: "(?i)guest"
+  disabled_ssid_broadcast:
+    enabled: true
+    severity: "warning"
 ```
 
-## Configuration
+## Alerting
 
-### Desired State Structure
+### GitHub Issues
 
-The `meraki_desired_ssids` variable defines your source of truth:
+When compliance fails, a GitHub Issue is auto-created with violation details and a remediation command. Configure via:
 
 ```yaml
-meraki_desired_ssids:
-  - network_name: "Network1"      # Must match inventory hostname
-    network_id: "N_..."           # Meraki network ID
-    ssids:                        # List of desired SSID configs
-      - name: "SSID Name"
-        enabled: true
-        authMode: "8021x"         # Options: open, psk, 8021x, ipsk
-        encryptionMode: "wpa2-eap" # Options: wpa, wpa-eap, wpa2, wpa2-eap
-        visible: true
-        broadcast: true
-        minBitrate: 11            # Options: 1, 2, 5.5, 6, 9, 11, 12, 18, 24, 36, 48, 54
-        bandSelection: "Dual band operation"  # Options: "Dual band operation", "5 GHz band only", etc.
+compliance_github_alert_enabled: true
+compliance_github_repo: "your-username/meraki-wireless-ansible"
+compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
 ```
+
+### Webex Teams
+
+A Webex Teams webhook message is sent with a markdown summary. Configure via:
+
+```yaml
+compliance_webex_alert_enabled: true
+compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') }}"
+```
+
+## GitHub Actions Integration
+
+The `compliance.yml` workflow runs compliance checks automatically:
+
+- **On schedule** — Every 6 hours (`0 */6 * * *`)
+- **On manual dispatch** — Via the GitHub Actions UI
+- **On webhook** — Triggered by `repository_dispatch` (Meraki config change)
+- **After SSID deployment** — Called by `deploy-ssids.yml` after live deploys
+
+After the compliance check, the workflow snapshots the live config to `baselines/` and commits it back to the repo for GitOps drift detection.
+
+## GitOps Configuration Baseline
+
+The `config_snapshot.yml` playbook pulls live SSID configuration from Meraki, filters out sensitive fields (like PSK), and stores it as YAML in `baselines/<network_id>/ssids.yml`.
+
+On subsequent runs, the snapshot is compared against the stored baseline. Any difference indicates drift from manual Dashboard changes.
+
+```bash
+ansible-playbook playbooks/config_snapshot.yml -i inventory/sandbox_compliance.yml
+```
+
+## Configuration Reference
 
 ### Compliance Settings
 
-Control compliance check behavior:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `compliance_check_enabled` | `true` | Enable/disable compliance checking |
+| `compliance_strict_mode` | `false` | If true, any deviation fails compliance |
+| `compliance_alerting_enabled` | `true` | Enable/disable all alerting |
+| `security_baseline_enabled` | `true` | Enable/disable security baseline checks |
+
+### Desired State Structure
 
 ```yaml
-compliance_check_enabled: true      # Enable/disable compliance checking
-compliance_strict_mode: false       # If true, any deviation fails compliance
-
-# Fields to check (empty list = check all fields)
-compliance_check_fields:
-  - name
-  - enabled
-  - authMode
-  - encryptionMode
-  - visible
-  - broadcast
-  - minBitrate
-  - bandSelection
+meraki_desired_ssids:
+  - network_name: "Network1"       # Must match inventory hostname
+    network_id: "N_..."            # Meraki network ID
+    ssids:
+      - name: "SSID Name"
+        enabled: true
+        authMode: "psk"            # Options: open, psk, 8021x, ipsk
+        encryptionMode: "wpa2"     # Options: wpa, wpa2, wpa3
+        visible: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
 ```
 
-## Understanding the Report
+## Remediation
 
-### Executive Summary
-
-High-level metrics:
-- Networks checked/compliant/non-compliant
-- SSIDs checked/compliant/non-compliant
-- Overall compliance status
-
-### Network Details
-
-For each network:
-- Compliance status (✅ COMPLIANT or ⚠️ NON-COMPLIANT)
-- Drift detection status
-- SSID compliance matrix showing pass/fail for each SSID and field
-
-### Drift Detection
-
-When drift is detected, the report shows:
-- Which SSIDs have drift
-- Which fields differ
-- Current value vs desired value
-- Remediation command to restore compliance
-
-## Troubleshooting
-
-### No Desired Config Found
-
-If a network doesn't have a desired config defined:
-- The compliance check will skip that network
-- Add the network to `meraki_desired_ssids` in group_vars
-
-### SSID Not Found in Desired State
-
-If an SSID exists in Meraki but not in desired state:
-- It will be marked as non-compliant (no desired config to compare)
-- Add the SSID to the desired state for that network
-
-### API Errors
-
-If you see API errors:
-- Verify `MERAKI_API_KEY` environment variable is set
-- Check network_id matches actual Meraki network ID
-- Verify API key has read permissions for networks
-
-## Best Practices
-
-1. **Version Control**: Store desired state in version control (group_vars)
-2. **Regular Checks**: Schedule compliance checks daily or weekly
-3. **Alert on Drift**: Set up alerts when drift is detected
-4. **Document Changes**: Update desired state when making intentional changes
-5. **Review Reports**: Regularly review compliance reports for trends
-
-## Integration with SSID Management
-
-After detecting drift, restore compliance using the SSID management playbook:
+After detecting drift, restore compliance by re-deploying SSIDs:
 
 ```bash
-# Detect drift
-ansible-playbook playbooks/compliance_check.yml
-
-# Restore compliance for non-compliant networks
-ansible-playbook playbooks/ssid_management.yml --limit Corporate-Office
+ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml
 ```
+
+Or trigger the deploy workflow via GitHub Actions.
 
 ## See Also
 
-- [SSID Management Documentation](SSID_MANAGEMENT.md)
 - [Getting Started Guide](GETTING_STARTED.md)
 - [Architecture Documentation](ARCHITECTURE.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
