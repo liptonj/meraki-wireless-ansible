@@ -1,0 +1,146 @@
+---
+- name: Initialize security baseline results
+  ansible.builtin.set_fact:
+    security_violations: []
+  tags:
+    - compliance
+    - security
+
+- name: Check for open authentication on enabled SSIDs
+  ansible.builtin.set_fact:
+    security_violations: >-
+      {{ security_violations + [{
+        'ssid_name': item.name | default('Unknown'),
+        'ssid_number': item.number | default(0),
+        'rule': 'no_open_auth',
+        'severity': 'critical',
+        'message': 'SSID "' + item.name | default('Unknown') + '" uses open authentication',
+        'current_value': item.authMode | default('unknown'),
+        'expected': 'psk, 8021x, or other authenticated mode'
+      }] }}
+  loop: "{{ current_ssids.data | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+  when:
+    - security_baseline_rules.no_open_auth.enabled | default(true)
+    - item.enabled | default(false) | bool
+    - item.authMode | default('') == 'open'
+  tags:
+    - compliance
+    - security
+
+- name: Check minimum encryption standard on enabled SSIDs
+  ansible.builtin.set_fact:
+    security_violations: >-
+      {{ security_violations + [{
+        'ssid_name': item.name | default('Unknown'),
+        'ssid_number': item.number | default(0),
+        'rule': 'minimum_encryption',
+        'severity': 'critical',
+        'message': 'SSID "' + item.name | default('Unknown') + '" uses weak encryption (' + item.encryptionMode | default('none') + ')',
+        'current_value': item.encryptionMode | default('none'),
+        'expected': 'wpa2 or higher'
+      }] }}
+  loop: "{{ current_ssids.data | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+  when:
+    - security_baseline_rules.minimum_encryption.enabled | default(true)
+    - item.enabled | default(false) | bool
+    - item.authMode | default('open') != 'open'
+    - item.encryptionMode | default('none') not in ['wpa2', 'wpa3', 'wpa2-eap', 'wpa3-eap', 'wpa2-sha256']
+  tags:
+    - compliance
+    - security
+
+- name: Check guest SSIDs have bandwidth limits
+  ansible.builtin.set_fact:
+    security_violations: >-
+      {{ security_violations + [{
+        'ssid_name': item.name | default('Unknown'),
+        'ssid_number': item.number | default(0),
+        'rule': 'guest_bandwidth_limits',
+        'severity': 'warning',
+        'message': 'Guest SSID "' + item.name | default('Unknown') + '" has no bandwidth limits',
+        'current_value': 'Upload: ' + (item.perClientBandwidthLimitUp | default(0) | string) + ', Download: ' + (item.perClientBandwidthLimitDown | default(0) | string),
+        'expected': 'Bandwidth limits > 0 for both upload and download'
+      }] }}
+  loop: "{{ current_ssids.data | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+  when:
+    - security_baseline_rules.guest_bandwidth_limits.enabled | default(true)
+    - item.enabled | default(false) | bool
+    - item.name | default('') | regex_search(security_baseline_rules.guest_bandwidth_limits.guest_ssid_pattern | default('(?i)guest'))
+    - (item.perClientBandwidthLimitUp | default(0) | int) == 0
+    - (item.perClientBandwidthLimitDown | default(0) | int) == 0
+  tags:
+    - compliance
+    - security
+
+- name: Check disabled SSIDs are not broadcasting
+  ansible.builtin.set_fact:
+    security_violations: >-
+      {{ security_violations + [{
+        'ssid_name': item.name | default('Unknown'),
+        'ssid_number': item.number | default(0),
+        'rule': 'disabled_ssid_broadcast',
+        'severity': 'warning',
+        'message': 'Disabled SSID "' + item.name | default('Unknown') + '" is still broadcasting',
+        'current_value': 'visible: ' + (item.visible | default(false) | string),
+        'expected': 'visible: false when SSID is disabled'
+      }] }}
+  loop: "{{ current_ssids.data | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+  when:
+    - security_baseline_rules.disabled_ssid_broadcast.enabled | default(true)
+    - not (item.enabled | default(false) | bool)
+    - item.visible | default(false) | bool
+  tags:
+    - compliance
+    - security
+
+- name: Display security baseline results
+  ansible.builtin.debug:
+    msg: |
+      Security Baseline Check: {{ 'PASS' if (security_violations | length == 0) else 'FAIL' }}
+      Critical violations: {{ security_violations | selectattr('severity', 'equalto', 'critical') | list | length }}
+      Warning violations: {{ security_violations | selectattr('severity', 'equalto', 'warning') | list | length }}
+
+      {% for violation in security_violations %}
+      [{{ violation.severity | upper }}] {{ violation.message }}
+        Current: {{ violation.current_value }}
+        Expected: {{ violation.expected }}
+      {% endfor %}
+  tags:
+    - compliance
+    - security
+
+- name: Merge security violations into compliance results
+  ansible.builtin.set_fact:
+    compliance_results: >-
+      {{
+        compliance_results | combine({
+          'security_violations': security_violations,
+          'security_critical_count': security_violations | selectattr('severity', 'equalto', 'critical') | list | length,
+          'security_warning_count': security_violations | selectattr('severity', 'equalto', 'warning') | list | length,
+          'security_passed': (security_violations | length == 0)
+        })
+      }}
+  tags:
+    - compliance
+    - security
+
+- name: Mark compliance as failed if critical security violations found
+  ansible.builtin.set_fact:
+    compliance_results: >-
+      {{
+        compliance_results | combine({
+          'networks_non_compliant': compliance_results.networks_non_compliant + (1 if (security_violations | selectattr('severity', 'equalto', 'critical') | list | length > 0) else 0)
+        })
+      }}
+  when: security_violations | selectattr('severity', 'equalto', 'critical') | list | length > 0
+  tags:
+    - compliance
+    - security

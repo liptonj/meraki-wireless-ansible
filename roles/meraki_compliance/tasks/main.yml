@@ -197,3 +197,13 @@
   tags:
     - compliance
     - drift
+
+- name: Run security baseline checks
+  ansible.builtin.include_tasks: security_baseline.yml
+  when:
+    - security_baseline_enabled | default(true) | bool
+    - current_ssids.data is defined
+    - current_ssids.data | length > 0
+  tags:
+    - compliance
+    - security

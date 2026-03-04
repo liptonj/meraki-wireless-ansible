@@ -58,3 +58,26 @@ compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }
 # Webex Teams alerting
 compliance_webex_alert_enabled: true
 compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
+
+# Security baseline checks (applied to all enabled SSIDs)
+security_baseline_enabled: true
+
+security_baseline_rules:
+  no_open_auth:
+    enabled: true
+    severity: "critical"
+    description: "Enabled SSIDs must not use open authentication"
+  minimum_encryption:
+    enabled: true
+    severity: "critical"
+    minimum: "wpa2"
+    description: "Enabled SSIDs must use WPA2 or higher encryption"
+  guest_bandwidth_limits:
+    enabled: true
+    severity: "warning"
+    guest_ssid_pattern: "(?i)guest"
+    description: "Guest SSIDs must have bandwidth limits configured"
+  disabled_ssid_broadcast:
+    enabled: true
+    severity: "warning"
+    description: "Disabled SSIDs should not be broadcasting"
