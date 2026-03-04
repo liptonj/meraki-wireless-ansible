@@ -1,0 +1,15 @@
+---
+# SSID Management Playbook
+# Manages wireless SSID configuration across Meraki networks
+
+- name: Manage Meraki SSIDs
+  hosts: meraki_orgs
+  gather_facts: false
+  become: false
+
+  vars:
+    # SSID configuration variables
+    # Override these in group_vars or inventory
+
+  roles:
+    - meraki_ssid

@@ -1,0 +1,199 @@
+---
+# Meraki Compliance Role - Main Tasks
+#
+# This role performs compliance checking by:
+# 1. Gathering current SSID configurations from Meraki Dashboard
+# 2. Comparing against desired state from group_vars
+# 3. Generating a compliance report
+
+- name: Initialize compliance results
+  ansible.builtin.set_fact:
+    compliance_results:
+      networks_checked: 0
+      networks_compliant: 0
+      networks_non_compliant: 0
+      ssids_checked: 0
+      ssids_compliant: 0
+      ssids_non_compliant: 0
+      network_details: []
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      playbook_mode: "{{ 'CHECK MODE (DRY-RUN)' if ansible_check_mode else 'LIVE MODE' }}"
+
+- name: Gather current SSID configurations from Meraki
+  cisco.meraki.networks_wireless_ssids_info:
+    auth_key: "{{ meraki_api_key }}"
+    org_name: "{{ meraki_org_name | default(omit) }}"
+    org_id: "{{ meraki_org_id | default(omit) }}"
+    network_name: "{{ inventory_hostname }}"
+    network_id: "{{ meraki_network_id | default(omit) }}"
+  register: current_ssids
+  failed_when: false
+  changed_when: false
+  tags:
+    - compliance
+    - gather
+
+- name: Get network ID from current SSIDs result
+  ansible.builtin.set_fact:
+    current_network_id: "{{ current_ssids.network_id | default(meraki_network_id | default('unknown')) }}"
+    current_network_name: "{{ inventory_hostname }}"
+  when: current_ssids.network_id is defined or meraki_network_id is defined
+
+- name: Find desired SSID configuration for this network
+  ansible.builtin.set_fact:
+    desired_config: "{{ meraki_desired_ssids | selectattr('network_name', 'equalto', inventory_hostname) | selectattr('network_id', 'equalto', current_network_id) | first | default({}) }}"
+  when: 
+    - meraki_desired_ssids is defined
+    - meraki_desired_ssids | length > 0
+
+- name: Set default desired config if not found
+  ansible.builtin.set_fact:
+    desired_config:
+      network_name: "{{ inventory_hostname }}"
+      network_id: "{{ current_network_id }}"
+      ssids: []
+  when: desired_config is not defined or desired_config | length == 0
+
+- name: Initialize network compliance structure
+  ansible.builtin.set_fact:
+    network_compliance:
+      network_name: "{{ inventory_hostname }}"
+      network_id: "{{ current_network_id }}"
+      compliant: true
+      ssids: []
+      drift_detected: false
+      drift_count: 0
+  tags:
+    - compliance
+    - compare
+
+- name: Check each current SSID against desired state
+  ansible.builtin.set_fact:
+    network_compliance: "{{ network_compliance | combine({'ssids': network_compliance.ssids + [ssid_check_result]}) }}"
+  loop: "{{ current_ssids.data | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+  vars:
+    current_ssid: "{{ item }}"
+    desired_ssid: "{{ desired_config.ssids | default([]) | selectattr('name', 'equalto', item.name | default('')) | first | default({}) }}"
+    
+    # Compare each field and build differences
+    enabled_diff: "{{ {'current': current_ssid.enabled | default(false), 'desired': desired_ssid.enabled | default(current_ssid.enabled | default(false))} if (desired_ssid.enabled | default(current_ssid.enabled | default(false))) != (current_ssid.enabled | default(false)) else {} }}"
+    authMode_diff: "{{ {'current': current_ssid.authMode | default('unknown'), 'desired': desired_ssid.authMode | default(current_ssid.authMode | default('unknown'))} if (desired_ssid.authMode | default(current_ssid.authMode | default('unknown'))) != (current_ssid.authMode | default('unknown')) else {} }}"
+    encryptionMode_diff: "{{ {'current': current_ssid.encryptionMode | default('unknown'), 'desired': desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown'))} if (desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown'))) != (current_ssid.encryptionMode | default('unknown')) else {} }}"
+    visible_diff: "{{ {'current': current_ssid.visible | default(false), 'desired': desired_ssid.visible | default(current_ssid.visible | default(false))} if (desired_ssid.visible | default(current_ssid.visible | default(false))) != (current_ssid.visible | default(false)) else {} }}"
+    broadcast_diff: "{{ {'current': current_ssid.broadcast | default(false), 'desired': desired_ssid.broadcast | default(current_ssid.broadcast | default(false))} if (desired_ssid.broadcast | default(current_ssid.broadcast | default(false))) != (current_ssid.broadcast | default(false)) else {} }}"
+    minBitrate_diff: "{{ {'current': current_ssid.minBitrate | default(0), 'desired': desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0))} if (desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0))) != (current_ssid.minBitrate | default(0)) else {} }}"
+    bandSelection_diff: "{{ {'current': current_ssid.bandSelection | default('unknown'), 'desired': desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown'))} if (desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown'))) != (current_ssid.bandSelection | default('unknown')) else {} }}"
+    
+    # Combine all differences into a single dict
+    ssid_differences: >-
+      {{
+        dict(
+          (['enabled', enabled_diff] if enabled_diff | length > 0 else []),
+          (['authMode', authMode_diff] if authMode_diff | length > 0 else []),
+          (['encryptionMode', encryptionMode_diff] if encryptionMode_diff | length > 0 else []),
+          (['visible', visible_diff] if visible_diff | length > 0 else []),
+          (['broadcast', broadcast_diff] if broadcast_diff | length > 0 else []),
+          (['minBitrate', minBitrate_diff] if minBitrate_diff | length > 0 else []),
+          (['bandSelection', bandSelection_diff] if bandSelection_diff | length > 0 else [])
+        ) | select('length') | list | dict
+      }}
+    
+    # Determine if SSID is compliant (has desired config AND matches)
+    ssid_compliant: "{{ (desired_ssid | length > 0) and (ssid_differences | length == 0) }}"
+    
+    # Build SSID check result
+    ssid_check_result:
+      name: "{{ current_ssid.name | default('Unknown') }}"
+      number: "{{ current_ssid.number | default(0) }}"
+      current:
+        enabled: "{{ current_ssid.enabled | default(false) }}"
+        authMode: "{{ current_ssid.authMode | default('unknown') }}"
+        encryptionMode: "{{ current_ssid.encryptionMode | default('unknown') }}"
+        visible: "{{ current_ssid.visible | default(false) }}"
+        broadcast: "{{ current_ssid.broadcast | default(false) }}"
+        minBitrate: "{{ current_ssid.minBitrate | default(0) }}"
+        bandSelection: "{{ current_ssid.bandSelection | default('unknown') }}"
+      desired: "{{ desired_ssid }}"
+      compliant: "{{ ssid_compliant }}"
+      drift_detected: "{{ (desired_ssid | length > 0) and (ssid_differences | length > 0) }}"
+      differences: "{{ ssid_differences }}"
+  when: 
+    - current_ssids.data is defined
+    - current_ssids.data | length > 0
+  tags:
+    - compliance
+    - compare
+
+- name: Calculate network-level compliance status
+  ansible.builtin.set_fact:
+    network_compliance: >-
+      {{
+        network_compliance | combine({
+          'compliant': (network_compliance.ssids | selectattr('compliant', 'equalto', true) | list | length == network_compliance.ssids | length) if network_compliance.ssids | length > 0 else true,
+          'drift_detected': (network_compliance.ssids | selectattr('drift_detected', 'equalto', true) | list | length > 0) if network_compliance.ssids | length > 0 else false,
+          'drift_count': network_compliance.ssids | selectattr('drift_detected', 'equalto', true) | list | length
+        })
+      }}
+  when: network_compliance.ssids is defined
+  tags:
+    - compliance
+
+- name: Update global compliance results
+  ansible.builtin.set_fact:
+    compliance_results: >-
+      {{
+        compliance_results | combine({
+          'networks_checked': compliance_results.networks_checked + 1,
+          'networks_compliant': compliance_results.networks_compliant + (1 if network_compliance.compliant else 0),
+          'networks_non_compliant': compliance_results.networks_non_compliant + (1 if not network_compliance.compliant else 0),
+          'ssids_checked': compliance_results.ssids_checked + (network_compliance.ssids | length),
+          'ssids_compliant': compliance_results.ssids_compliant + (network_compliance.ssids | selectattr('compliant', 'equalto', true) | list | length),
+          'ssids_non_compliant': compliance_results.ssids_non_compliant + (network_compliance.ssids | selectattr('compliant', 'equalto', false) | list | length),
+          'network_details': compliance_results.network_details + [network_compliance]
+        })
+      }}
+  when: network_compliance is defined
+  tags:
+    - compliance
+    - reporting
+
+- name: Generate compliance report
+  ansible.builtin.template:
+    src: compliance_report.md.j2
+    dest: "{{ compliance_report_dir }}/{{ compliance_report_filename }}"
+    mode: '0644'
+  vars:
+    compliance_data: "{{ compliance_results }}"
+    network_details: "{{ network_compliance }}"
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - compliance
+    - reporting
+
+- name: Display drift detection summary (check mode)
+  ansible.builtin.debug:
+    msg: |
+      DRIFT DETECTED in {{ inventory_hostname }}!
+      
+      Network: {{ network_compliance.network_name }}
+      SSIDs with drift: {{ network_compliance.drift_count }}
+      
+      {% for ssid in network_compliance.ssids %}
+      {% if ssid.drift_detected %}
+      SSID "{{ ssid.name }}" (Number {{ ssid.number }}):
+        {% for field, values in ssid.differences.items() %}
+        - {{ field }}: Current={{ values.current }}, Desired={{ values.desired }}
+        {% endfor %}
+      {% endif %}
+      {% endfor %}
+      
+      Run without --check to see full compliance report.
+  when:
+    - ansible_check_mode
+    - network_compliance.drift_detected | default(false)
+  tags:
+    - compliance
+    - drift

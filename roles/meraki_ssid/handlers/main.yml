@@ -1,0 +1,7 @@
+---
+# Meraki SSID Role - Handlers
+# Handlers for SSID-related events
+
+- name: restart wireless
+  debug:
+    msg: "Wireless restart handler to be implemented"

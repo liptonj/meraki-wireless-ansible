@@ -1,0 +1,7 @@
+---
+# Meraki SSID Role - Main Tasks
+# Handles SSID creation, modification, and deletion
+
+- name: SSID management tasks
+  debug:
+    msg: "SSID management tasks to be implemented"

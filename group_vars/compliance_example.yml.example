@@ -1,0 +1,90 @@
+---
+# Example: Desired SSID Configurations for Compliance Checking
+# 
+# Copy this to group_vars/all.yml or create group_vars/compliance.yml
+# and include it in your playbook
+#
+# This defines the "source of truth" for SSID configurations.
+# The compliance check compares actual Meraki Dashboard configs against these values.
+
+# Desired SSID Configurations per Network
+# Structure: List of networks, each with a list of desired SSID configs
+meraki_desired_ssids:
+  # Example Network 1: Corporate Office
+  - network_name: "Corporate-Office"  # Must match inventory hostname
+    network_id: "N_1234567890abcdef"  # Get from Meraki Dashboard URL or API
+    ssids:
+      - name: "Corporate"
+        enabled: true
+        authMode: "8021x"
+        encryptionMode: "wpa2-eap"
+        visible: true
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+      
+      - name: "Guest"
+        enabled: true
+        authMode: "open"
+        encryptionMode: "wpa"
+        visible: true
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+      
+      - name: "IoT"
+        enabled: true
+        authMode: "psk"
+        encryptionMode: "wpa2"
+        visible: false
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+
+  # Example Network 2: Remote Office
+  - network_name: "Remote-Office"  # Must match inventory hostname
+    network_id: "N_abcdef1234567890"
+    ssids:
+      - name: "Corporate"
+        enabled: true
+        authMode: "8021x"
+        encryptionMode: "wpa2-eap"
+        visible: true
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+      
+      - name: "Guest"
+        enabled: true
+        authMode: "open"
+        encryptionMode: "wpa"
+        visible: true
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+
+# How to find Network ID:
+# 1. Log into Meraki Dashboard
+# 2. Navigate to your network
+# 3. Look at the URL: https://dashboard.meraki.com/.../n/{NETWORK_ID}/...
+# 4. Or use Meraki API: GET /organizations/{orgId}/networks
+
+# How to find Network Name:
+# Use the hostname from your inventory file, or query via API:
+# GET /organizations/{orgId}/networks
+
+# Compliance Check Settings
+compliance_check_enabled: true
+compliance_strict_mode: false  # Set to true for strict compliance (any deviation fails)
+
+# Fields to check for compliance
+# Leave empty [] to check all fields, or specify subset:
+compliance_check_fields:
+  - name
+  - enabled
+  - authMode
+  - encryptionMode
+  - visible
+  - broadcast
+  - minBitrate
+  - bandSelection

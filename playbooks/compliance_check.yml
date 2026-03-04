@@ -1,0 +1,70 @@
+---
+# Meraki Wireless Compliance Check Playbook
+# 
+# Purpose: Detect configuration drift and generate compliance reports
+# 
+# This playbook:
+# 1. Gathers current SSID configurations from Meraki Dashboard
+# 2. Compares against desired state defined in group_vars
+# 3. Generates a Markdown compliance report
+# 4. Supports --check --diff mode for dry-run drift detection
+#
+# Usage:
+#   # Run compliance check
+#   ansible-playbook playbooks/compliance_check.yml
+#
+#   # Dry-run mode (check for drift without making changes)
+#   ansible-playbook playbooks/compliance_check.yml --check --diff
+#
+#   # Check specific network
+#   ansible-playbook playbooks/compliance_check.yml --limit network1
+#
+#   # Schedule with cron (runs daily at 2 AM)
+#   # 0 2 * * * cd /path/to/repo && ansible-playbook playbooks/compliance_check.yml
+#
+# Prerequisites:
+#   - MERAKI_API_KEY environment variable set
+#   - group_vars/all.yml or group_vars/meraki_networks.yml with desired SSID configs
+#   - Inventory file with Meraki network hosts
+
+- name: Meraki Wireless Compliance Check
+  hosts: meraki_networks
+  gather_facts: true
+  
+  vars:
+    # Output directory for compliance reports
+    compliance_report_dir: "{{ playbook_dir }}/../reports"
+    compliance_report_filename: "compliance_report_{{ ansible_date_time.epoch }}.md"
+    
+  pre_tasks:
+    - name: Ensure reports directory exists
+      ansible.builtin.file:
+        path: "{{ compliance_report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+      tags: always
+
+  roles:
+    - role: meraki_compliance
+      vars:
+        # Pass desired state from group_vars to role
+        desired_ssid_configs: "{{ meraki_desired_ssids | default([]) }}"
+        
+  post_tasks:
+    - name: Display compliance summary
+      ansible.builtin.debug:
+        msg: |
+          Compliance check completed!
+          
+          Total Networks Checked: {{ compliance_results.networks_checked | default(0) }}
+          Networks Compliant: {{ compliance_results.networks_compliant | default(0) }}
+          Networks Non-Compliant: {{ compliance_results.networks_non_compliant | default(0) }}
+          Total SSIDs Checked: {{ compliance_results.ssids_checked | default(0) }}
+          SSIDs Compliant: {{ compliance_results.ssids_compliant | default(0) }}
+          SSIDs Non-Compliant: {{ compliance_results.ssids_non_compliant | default(0) }}
+          
+          Report saved to: {{ compliance_report_dir }}/{{ compliance_report_filename }}
+      when: compliance_results is defined
+      tags: always

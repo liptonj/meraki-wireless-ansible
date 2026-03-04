@@ -1,0 +1,94 @@
+{
+  // Dev Container Configuration for Meraki Wireless Ansible
+  // Provides a consistent development environment with Python and Ansible pre-installed
+  // Perfect for VS Code and Cursor users
+  //
+  // Usage: Open folder in VS Code/Cursor, it will prompt to reopen in container
+  // Or: Use "Dev Containers: Reopen in Container" command
+
+  "name": "Meraki Wireless Ansible",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  
+  // Features to install in the container
+  "features": {
+    // Git for version control
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    // GitHub CLI (optional, useful for GitHub integration)
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+
+  // VS Code/Cursor extensions to install
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Ansible extension - syntax highlighting, linting, autocomplete
+        "redhat.ansible",
+        // Python extension - IntelliSense, debugging, testing
+        "ms-python.python",
+        // YAML extension - better YAML editing
+        "redhat.vscode-yaml",
+        // GitLens - enhanced Git capabilities
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        // Python settings
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.formatting.provider": "black",
+        // Ansible settings
+        "ansible.python.interpreterPath": "/usr/local/bin/python",
+        "ansible.ansible.path": "/usr/local/bin/ansible",
+        "ansible.ansibleLint.path": "/usr/local/bin/ansible-lint",
+        // YAML settings
+        "yaml.schemas": {
+          "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json": [
+            "**/playbooks/**/*.yml",
+            "**/roles/**/*.yml"
+          ]
+        },
+        // Editor settings
+        "editor.formatOnSave": true,
+        "editor.rulers": [88],
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  },
+
+  // Commands to run after container is created
+  "postCreateCommand": "bash -c 'pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && ansible-galaxy collection install -r requirements.yml'",
+
+  // Commands to run when container starts
+  "postStartCommand": "echo 'Meraki Wireless Ansible dev container ready!'",
+
+  // Mount the workspace folder
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+
+  // Port forwarding (if needed for any web services)
+  // "forwardPorts": [],
+
+  // Remote user (defaults to vscode user in Microsoft images)
+  "remoteUser": "vscode",
+
+  // Environment variables
+  "containerEnv": {
+    "ANSIBLE_CONFIG": "/workspace/ansible.cfg",
+    "ANSIBLE_FORCE_COLOR": "1"
+  },
+
+  // Lifecycle scripts
+  "onCreateCommand": "echo 'Setting up Meraki Wireless Ansible environment...'",
+  
+  // Update command to run when rebuilding
+  "updateContentCommand": "pip install --upgrade -r requirements.txt && ansible-galaxy collection install -r requirements.yml --force",
+
+  // Comment out if you want to use local .env file
+  // "runArgs": ["--env-file", ".env"]
+}

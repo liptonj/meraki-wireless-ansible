@@ -1,0 +1,156 @@
+# Group Policy Configuration Drift Report
+
+**Generated:** {{ drift_results.timestamp | default(ansible_date_time.iso8601) }}  
+**Network ID:** {{ meraki_network_id }}  
+**Mode:** {% if drift_results.check_mode | default(false) %}CHECK MODE (Report Only){% else %}REMEDIATION MODE{% endif %}
+
+---
+
+## Executive Summary
+
+| Metric | Count |
+|--------|-------|
+| Total Policies Checked | {{ drift_results.total_policies | default(0) }} |
+| Policies Compliant | {{ drift_results.compliant_policies | default(0) }} |
+| Policies With Drift | {{ drift_results.drift_detected | default(0) }} |
+| Compliance Rate | {{ ((drift_results.compliant_policies | default(0) | int / drift_results.total_policies | default(1) | int) * 100) | round(1) }}% |
+
+{% if drift_results.remediation_attempted | default(false) %}
+### Remediation Status
+- **Successfully Corrected:** {{ drift_results.remediation_success | default(0) }}
+- **Failed to Correct:** {{ drift_results.remediation_failed | default(0) }}
+{% endif %}
+
+---
+
+## Overall Status
+
+{% if drift_results.drift_detected | default(0) | int == 0 %}
+✅ **COMPLIANT** - All group policies match the source of truth configuration.
+{% else %}
+⚠️ **DRIFT DETECTED** - {{ drift_results.drift_detected }} policy/policies have configuration drift.
+
+{% if drift_results.check_mode | default(false) %}
+**Action Required:** Run playbook without `--check` flag to auto-remediate drift.
+{% else %}
+**Action Taken:** Drift has been automatically remediated.
+{% endif %}
+{% endif %}
+
+---
+
+## Detailed Policy Analysis
+
+{% for policy in drift_results.policies | default([]) %}
+### {{ loop.index }}. {{ policy.name }}
+
+**Status:** {% if policy.compliant %}✅ COMPLIANT{% elif policy.missing %}❌ MISSING{% else %}⚠️ DRIFT DETECTED{% endif %}
+
+{% if policy.missing %}
+**Issue:** This policy is defined in the source of truth but does not exist in Meraki Dashboard.
+
+**Required Action:** Policy will be created during remediation.
+{% elif not policy.compliant %}
+**Drift Details:**
+```
+{{ policy.differences }}
+```
+
+**Impact:** Configuration does not match source of truth. This may result in:
+- Unexpected bandwidth limits for clients
+- Incorrect VLAN assignments
+- Unintended firewall rule changes
+- Security policy violations
+
+{% if drift_results.remediation_attempted | default(false) %}
+**Remediation:** Configuration has been corrected to match source of truth.
+{% else %}
+**Recommended Action:** Run playbook in remediation mode to auto-correct.
+{% endif %}
+{% else %}
+**Details:** All configuration parameters match the source of truth.
+{% endif %}
+
+---
+{% endfor %}
+
+## Source of Truth Reference
+
+The following group policies are defined as the baseline in `group_vars/all.yml`:
+
+{% for policy in meraki_group_policies | default([]) %}
+### {{ policy.name }}
+
+**Bandwidth Settings:**
+- Upload Limit: {{ policy.bandwidth.bandwidthLimits.limitUp | default('N/A') }} Kbps
+- Download Limit: {{ policy.bandwidth.bandwidthLimits.limitDown | default('N/A') }} Kbps
+
+**VLAN Configuration:**
+- VLAN ID: {{ policy.vlanTagging.vlanId | default('N/A') }}
+
+**Firewall Rules:**
+{% if policy.firewallAndTrafficShaping.l3FirewallRules is defined %}
+{% for rule in policy.firewallAndTrafficShaping.l3FirewallRules %}
+- {{ rule.comment }}: {{ rule.policy }} {{ rule.protocol }}/{{ rule.destPort }}
+{% endfor %}
+{% else %}
+- No custom firewall rules defined
+{% endif %}
+
+**Other Settings:**
+- Bonjour Forwarding: {{ policy.bonjourForwarding.settings | default('N/A') }}
+- Splash Auth: {{ policy.splashAuthSettings | default('N/A') }}
+
+---
+{% endfor %}
+
+## Recommendations
+
+{% if drift_results.drift_detected | default(0) | int > 0 %}
+1. **Review Drift Causes:** Investigate why configuration drift occurred
+   - Was this an intentional manual change?
+   - Did an admin make changes directly in Dashboard?
+   - Should the source of truth be updated instead?
+
+2. **Update Source of Truth:** If drift is intentional, update `group_vars/all.yml`
+   ```bash
+   # Edit the source of truth
+   vim group_vars/all.yml
+   
+   # Commit changes
+   git add group_vars/all.yml
+   git commit -m "Update group policy baseline"
+   ```
+
+3. **Auto-Remediate:** To automatically correct drift to match source of truth:
+   ```bash
+   ansible-playbook playbooks/group_policy_drift.yml
+   ```
+
+4. **Schedule Regular Checks:** Set up cron job for continuous monitoring:
+   ```bash
+   # Daily at 2 AM - check mode only
+   0 2 * * * cd /path/to/repo && ansible-playbook playbooks/group_policy_drift.yml --check
+   ```
+{% else %}
+1. **Maintain Compliance:** Continue running regular drift checks
+2. **Update Documentation:** Ensure all changes go through source of truth
+3. **Educate Team:** Remind admins to use Ansible for all policy changes
+{% endif %}
+
+---
+
+## Next Steps
+
+- [ ] Review this report with network operations team
+- [ ] Document any intentional configuration changes
+- [ ] Update source of truth if needed
+- [ ] Schedule regular drift detection checks
+- [ ] Consider integrating with monitoring/alerting systems
+
+---
+
+**Report Generated by:** Meraki Wireless Ansible Automation  
+**Playbook:** `playbooks/group_policy_drift.yml`  
+**Role:** `meraki_group_policy_drift`  
+**Documentation:** See `docs/GROUP_POLICY_DRIFT.md` for more information

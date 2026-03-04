@@ -1,0 +1,233 @@
+---
+# Global Variables - Applied to ALL Environments
+# These variables are shared across sandbox, staging, and production
+# Environment-specific overrides go in group_vars/sandbox.yml, group_vars/production.yml, etc.
+
+# ============================================================================
+# Meraki API Configuration
+# ============================================================================
+
+# Base URL for Meraki Dashboard API
+# Use v1 API for maximum compatibility
+meraki_base_url: "https://api.meraki.com/api/v1"
+
+# API request timeout in seconds
+# Increase for slow networks or large operations
+meraki_api_timeout: 30
+
+# Number of retries for failed API requests
+meraki_api_retries: 3
+
+# Delay between retries (seconds)
+meraki_api_retry_delay: 2
+
+# Rate limiting: Maximum requests per second
+# Meraki API limit: ~5 requests/second per API key
+# Set conservatively to avoid hitting limits
+meraki_rate_limit: 4
+
+# ============================================================================
+# SSID Configuration - Default Settings
+# ============================================================================
+
+# Default SSID configurations that will be applied
+# Override these per-network or per-environment as needed
+
+# List of SSIDs to configure
+# Each SSID is a dictionary with configuration options
+meraki_ssids:
+  # Example: Corporate WPA2-Enterprise SSID
+  - name: "Corporate"
+    enabled: true
+    authMode: "8021x"  # Options: psk, 8021x, open
+    encryptionMode: "wpa"  # Options: wpa, wpa2, wpa3
+    wpaEncryptionMode: "WPA2"  # Options: WPA2, WPA2 and WPA3
+    radiusServers:
+      # RADIUS server configuration (secrets in vault)
+      - host: "{{ vault_radius_server_1_host }}"
+        port: 1812
+        secret: "{{ vault_radius_server_1_secret }}"
+    radiusAccountingEnabled: true
+    radiusAccountingServers:
+      - host: "{{ vault_radius_server_1_host }}"
+        port: 1813
+        secret: "{{ vault_radius_server_1_secret }}"
+    radiusAttributeForGroupPolicies: "Filter-Id"
+    minBitrate: 11  # Minimum bitrate in Mbps (11, 12, 18, 24, 36, 48, 54)
+    bandSelection: "5 GHz band only"  # Options: "Dual band operation", "5 GHz band only", "Dual band operation with Band Steering"
+    perClientBandwidthLimitUp: 0  # 0 = unlimited, or specify Mbps
+    perClientBandwidthLimitDown: 0
+    visible: true  # SSID visible in broadcast
+    availableOnAllAps: true  # Available on all APs in network
+  
+  # Example: Guest WPA2-PSK SSID
+  - name: "Guest"
+    enabled: true
+    authMode: "psk"
+    encryptionMode: "wpa2"
+    psk: "{{ vault_guest_ssid_psk }}"  # Store in vault!
+    minBitrate: 11
+    bandSelection: "Dual band operation"
+    perClientBandwidthLimitUp: 1000  # 1 Mbps upload limit
+    perClientBandwidthLimitDown: 5000  # 5 Mbps download limit
+    visible: true
+    availableOnAllAps: true
+    splashPage: "None"  # Options: None, Click-through splash page, etc.
+  
+  # Example: IoT Network (Open with MAC filtering)
+  # - name: "IoT"
+  #   enabled: true
+  #   authMode: "open"
+  #   encryptionMode: "wpa"
+  #   minBitrate: 11
+  #   bandSelection: "5 GHz band only"
+  #   visible: false  # Hidden SSID
+  #   availableOnAllAps: false
+  #   apTagsAndVlanIds:
+  #     - tags: ["iot"]
+  #       vlanId: 100
+
+# ============================================================================
+# Access Point (AP) Configuration
+# ============================================================================
+
+# AP naming pattern
+# Use Jinja2 templates for dynamic naming
+# Available variables: {serial}, {model}, {network_name}, {location}
+meraki_ap_name_pattern: "{network_name}-AP-{serial[-6:]}"  # Last 6 chars of serial
+
+# AP tag patterns for organization
+# Tags help group APs for configuration management
+meraki_ap_tags:
+  - "managed-by-ansible"
+  # Add environment-specific tags in group_vars/sandbox.yml or production.yml
+
+# Default AP configuration
+meraki_ap_config:
+  # Enable LED status lights
+  ledLightsOn: true
+  
+  # Enable uplink connectivity monitoring
+  uplinkClientSampling:
+    enabled: true
+    url: ""  # Optional: webhook URL for monitoring
+
+# ============================================================================
+# Group Policy Configuration - Source of Truth
+# ============================================================================
+
+# Group policies define bandwidth, VLAN, firewall rules, and other settings
+# that can be applied to individual clients or groups of clients.
+# These policies act as the "golden baseline" for drift detection.
+
+meraki_group_policies:
+  # Standard User Policy - Corporate employees with moderate bandwidth
+  - name: "Standard User Policy"
+    bandwidth:
+      settings: "custom"
+      bandwidthLimits:
+        limitUp: 10000    # 10 Mbps upload limit
+        limitDown: 50000  # 50 Mbps download limit
+    firewallAndTrafficShaping:
+      settings: "custom"
+      l3FirewallRules:
+        - comment: "Allow HTTP/HTTPS"
+          policy: "allow"
+          protocol: "tcp"
+          destPort: "80,443"
+          destCidr: "Any"
+        - comment: "Deny all other traffic"
+          policy: "deny"
+          protocol: "Any"
+          destPort: "Any"
+          destCidr: "Any"
+    splashAuthSettings: "bypass"
+    vlanTagging:
+      settings: "custom"
+      vlanId: "10"
+    bonjourForwarding:
+      settings: "disabled"
+  
+  # Guest Policy - Limited bandwidth for guest users
+  - name: "Guest Policy"
+    bandwidth:
+      settings: "custom"
+      bandwidthLimits:
+        limitUp: 1000     # 1 Mbps upload limit
+        limitDown: 5000   # 5 Mbps download limit
+    firewallAndTrafficShaping:
+      settings: "custom"
+      l3FirewallRules:
+        - comment: "Allow HTTP/HTTPS only"
+          policy: "allow"
+          protocol: "tcp"
+          destPort: "80,443"
+          destCidr: "Any"
+        - comment: "Deny all other traffic"
+          policy: "deny"
+          protocol: "Any"
+          destPort: "Any"
+          destCidr: "Any"
+    splashAuthSettings: "bypass"
+    vlanTagging:
+      settings: "custom"
+      vlanId: "100"
+    bonjourForwarding:
+      settings: "disabled"
+
+# ============================================================================
+# Compliance and Validation Settings
+# ============================================================================
+
+# Enable compliance checking
+# When true, playbooks will validate configurations before applying
+meraki_compliance_check_enabled: true
+
+# Compliance rules: Define expected configurations
+meraki_compliance_rules:
+  # Require WPA2 or WPA3 encryption (no WPA-only)
+  - name: "encryption_standard"
+    check: "all_ssids_use_wpa2_or_wpa3"
+    severity: "error"  # Options: error, warning
+  
+  # Require strong PSK (if using PSK auth)
+  - name: "psk_strength"
+    check: "psk_min_length_8"
+    severity: "warning"
+  
+  # Require bandwidth limits on guest networks
+  - name: "guest_bandwidth_limits"
+    check: "guest_ssids_have_bandwidth_limits"
+    severity: "warning"
+
+# ============================================================================
+# Operational Settings
+# ============================================================================
+
+# Dry-run mode: When true, show changes without applying them
+# Useful for testing and validation
+meraki_dry_run: false
+
+# Enable change validation before applying
+# When true, compare current vs desired state before making changes
+meraki_validate_changes: true
+
+# Logging and reporting
+meraki_log_changes: true
+meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.json"
+
+# ============================================================================
+# Ansible Configuration
+# ============================================================================
+
+# Python interpreter
+ansible_python_interpreter: auto_silent
+
+# Connection settings (we use local connection for API calls)
+ansible_connection: local
+
+# Fact gathering (disabled for API-based inventory)
+gather_facts: false
+
+# Host key checking (not applicable for API, but set for safety)
+host_key_checking: false
