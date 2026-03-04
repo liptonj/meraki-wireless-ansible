@@ -66,7 +66,7 @@ meraki-wireless-ansible/
 │
 ├── group_vars/                # Group-specific variables
 │   ├── all.yml                # Variables for all hosts
-│   ├── sandbox.yml            # Sandbox-specific overrides
+│   ├── meraki_orgs.yml        # SSID deployment config for meraki_orgs group
 │   └── meraki_networks.yml    # Desired SSID state for compliance
 │
 ├── baselines/                 # GitOps config snapshots (auto-updated)
@@ -168,7 +168,7 @@ meraki_base_url: "https://api.meraki.com"
 meraki_api_timeout: 30
 ```
 
-**`group_vars/sandbox.yml`** - Applies to hosts in `sandbox` group:
+**`group_vars/meraki_orgs.yml`** - SSID deployment config for `meraki_orgs` inventory group:
 ```yaml
 environment: sandbox
 meraki_api_timeout: 60  # Override for sandbox
@@ -213,7 +213,7 @@ Understanding data flow is crucial for debugging and customization.
 ┌─────────────────┐
 │  group_vars/    │◄─── Provides variables for groups
 │  all.yml        │
-│  sandbox.yml    │
+│  meraki_orgs.yml│
 └────────┬────────┘
          │
          ▼
@@ -262,7 +262,7 @@ Understanding data flow is crucial for debugging and customization.
 
 4. **Ansible loads group variables**:
    - `group_vars/all.yml` → applies to all hosts
-   - `group_vars/sandbox.yml` → applies to sandbox hosts (overrides `all.yml`)
+   - `group_vars/meraki_orgs.yml` → SSID deployment config for meraki_orgs group
 
 5. **Playbook execution begins**:
    - Playbook defines target hosts: `hosts: meraki_orgs`
@@ -401,7 +401,7 @@ $ ansible-playbook playbooks/ssid_management.yml
    → meraki_base_url: "https://api.meraki.com"
    → meraki_api_timeout: 30
    
-   Load group_vars/sandbox.yml
+   Load group_vars/meraki_orgs.yml
    → environment: sandbox
    → meraki_api_timeout: 60 (overrides all.yml)
    
@@ -470,7 +470,7 @@ inventory/
 
 group_vars/
 ├── all.yml            # Common settings
-└── sandbox.yml        # Sandbox-specific
+└── meraki_orgs.yml    # SSID deployment config for meraki_orgs group
 ```
 
 ### 3. Role Reusability

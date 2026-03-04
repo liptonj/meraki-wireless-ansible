@@ -407,8 +407,8 @@ Include:
 meraki_base_url: "https://api.meraki.com"
 meraki_api_timeout: 30
 
-# group_vars/sandbox.yml
-# Sandbox-specific overrides
+# group_vars/meraki_orgs.yml
+# SSID deployment config for meraki_orgs group
 environment: sandbox
 meraki_api_timeout: 60  # Longer timeout for sandbox
 ```

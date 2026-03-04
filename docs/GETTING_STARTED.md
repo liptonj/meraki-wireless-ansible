@@ -302,7 +302,7 @@ ansible-playbook playbooks/ssid_management.yml
 - Can enable/disable SSIDs
 
 **Configuration:**
-- Edit `group_vars/all.yml` or `group_vars/sandbox.yml` to define SSID settings
+- Edit `group_vars/all.yml` or `group_vars/meraki_orgs.yml` to define SSID settings
 - Variables are documented in `roles/meraki_ssid/defaults/main.yml`
 
 ### Compliance Check Playbook
