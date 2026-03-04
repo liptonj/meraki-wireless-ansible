@@ -12,7 +12,7 @@ ansible-core==2.20.2
 
 # Ansible Lint - Code quality and best practices checker
 # Ensures playbooks follow Ansible best practices
-ansible-lint==6.22.2
+ansible-lint>=25.0.0
 
 # Meraki Python SDK - Official Cisco Meraki API client
 # Version 2.0.3 released May 2025, required by cisco.meraki collection
@@ -28,7 +28,7 @@ pyyaml==6.0.2
 
 # Jinja2 - Template engine used by Ansible
 # Required for Ansible templating functionality
-jinja2==3.1.4
+jinja2==3.1.6
 
 # Detect Secrets - Security scanning tool
 # Scans codebase for accidentally committed secrets and sensitive data
