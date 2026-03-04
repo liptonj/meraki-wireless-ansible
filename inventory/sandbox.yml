@@ -1,0 +1,61 @@
+---
+# Meraki Sandbox/Test Environment Inventory
+# This inventory targets a Meraki organization used for testing and development.
+# Control node: localhost (Ansible runs locally and connects to Meraki API)
+#
+# SETUP:
+# 1. Get an API key from: Meraki Dashboard > My Profile > API access
+# 2. Query the API to discover your org/network IDs
+# 3. Store your API key securely (use ansible-vault for secrets.yml)
+
+all:
+  children:
+    # Meraki Organizations Group
+    # Represents Meraki organizations you'll manage
+    meraki_orgs:
+      hosts:
+        # Test/Sandbox Organization
+        # Replace with your org ID from API query:
+        # GET https://api.meraki.com/api/v1/organizations
+        meraki_sandbox:
+          # Organization ID from your Meraki Dashboard
+          # Query via: GET /organizations
+          meraki_org_id: "{{ vault_meraki_org_id | default('YOUR_ORG_ID') }}"
+          
+          # API Key (stored in vault/secrets.yml)
+          meraki_api_key: "{{ vault_meraki_api_key }}"
+          
+          # Base URL for Meraki API
+          meraki_base_url: "https://api.meraki.com/api/v1"
+          
+          # Environment identifier
+          environment: sandbox
+          
+          # Network IDs within this organization
+          # Query via: GET /organizations/{orgId}/networks
+          meraki_network_ids:
+            - "{{ vault_meraki_network_id_1 | default('YOUR_NETWORK_ID_1') }}"
+            # Add more networks as needed:
+            # - "{{ vault_meraki_network_id_2 | default('YOUR_NETWORK_ID_2') }}"
+      
+      vars:
+        # Variables applied to all organizations in this group
+        # These can be overridden per-host above
+        
+        # API request timeout (seconds)
+        meraki_api_timeout: 60
+        
+        # Retry configuration for API calls
+        meraki_api_retries: 3
+        meraki_api_retry_delay: 2
+        
+        # Rate limiting (requests per second)
+        # Meraki API limit: ~5 requests/second per API key
+        meraki_rate_limit: 4
+
+# Control node configuration
+# Since we're using Meraki API (not SSH), we run from localhost
+localhost:
+  ansible_connection: local
+  ansible_host: localhost
+  ansible_python_interpreter: auto_silent

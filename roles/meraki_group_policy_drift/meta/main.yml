@@ -1,0 +1,30 @@
+---
+# Role metadata for meraki_group_policy_drift
+
+galaxy_info:
+  role_name: meraki_group_policy_drift
+  author: Meraki Automation Team
+  description: Detect and remediate Meraki group policy configuration drift
+  company: Your Organization
+  license: MIT
+  
+  min_ansible_version: "2.15"
+  
+  platforms:
+    - name: Any
+      versions:
+        - all
+  
+  galaxy_tags:
+    - networking
+    - meraki
+    - cisco
+    - wireless
+    - drift
+    - compliance
+    - automation
+
+dependencies: []
+
+collections:
+  - cisco.meraki

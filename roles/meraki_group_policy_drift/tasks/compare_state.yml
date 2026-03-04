@@ -1,0 +1,119 @@
+---
+# Compare desired group policy state with current state
+# Detect drift across bandwidth, VLAN, firewall, and other settings
+
+- name: Initialize comparison tracking
+  ansible.builtin.set_fact:
+    _policies_checked: []
+    _compliant_count: 0
+    _drift_count: 0
+
+- name: Compare each policy against desired state
+  ansible.builtin.set_fact:
+    _policy_result: "{{ _policy_result | default({}) | combine({
+      'name': item.name,
+      'exists': _policy_exists,
+      'drift_detected': _drift_detected,
+      'compliant': not _drift_detected and _policy_exists,
+      'differences': _differences,
+      'missing': not _policy_exists
+    }) }}"
+  vars:
+    # Find current policy by name
+    _current_policy: "{{ current_policies | selectattr('name', 'equalto', item.name) | list | first | default({}) }}"
+    _policy_exists: "{{ _current_policy | length > 0 }}"
+    
+    # Check each configuration area for drift
+    _bandwidth_drift: >-
+      {{ (drift_check_bandwidth | default(true)) and 
+         _policy_exists and 
+         (_current_policy.bandwidth | default({}) != item.bandwidth | default({})) }}
+    
+    _vlan_drift: >-
+      {{ (drift_check_vlan | default(true)) and 
+         _policy_exists and 
+         (_current_policy.vlanTagging | default({}) != item.vlanTagging | default({})) }}
+    
+    _firewall_drift: >-
+      {{ (drift_check_firewall | default(true)) and 
+         _policy_exists and 
+         (_current_policy.firewallAndTrafficShaping | default({}) != item.firewallAndTrafficShaping | default({})) }}
+    
+    _bonjour_drift: >-
+      {{ (drift_check_bonjour | default(true)) and 
+         _policy_exists and 
+         (_current_policy.bonjourForwarding | default({}) != item.bonjourForwarding | default({})) }}
+    
+    _splash_drift: >-
+      {{ (drift_check_splash | default(true)) and 
+         _policy_exists and 
+         (_current_policy.splashAuthSettings | default('') != item.splashAuthSettings | default('')) }}
+    
+    # Overall drift detection
+    _drift_detected: >-
+      {{ not _policy_exists or 
+         _bandwidth_drift | bool or 
+         _vlan_drift | bool or 
+         _firewall_drift | bool or 
+         _bonjour_drift | bool or 
+         _splash_drift | bool }}
+    
+    # Build detailed differences list
+    _differences: >-
+      {% set diffs = [] %}
+      {% if not _policy_exists %}
+      {{ diffs.append('Policy does not exist in Meraki Dashboard') }}
+      {% endif %}
+      {% if _bandwidth_drift | bool %}
+      {{ diffs.append('Bandwidth: current=' + (_current_policy.bandwidth | default({}) | string) + ' desired=' + (item.bandwidth | default({}) | string)) }}
+      {% endif %}
+      {% if _vlan_drift | bool %}
+      {{ diffs.append('VLAN: current=' + (_current_policy.vlanTagging | default({}) | string) + ' desired=' + (item.vlanTagging | default({}) | string)) }}
+      {% endif %}
+      {% if _firewall_drift | bool %}
+      {{ diffs.append('Firewall rules changed') }}
+      {% endif %}
+      {% if _bonjour_drift | bool %}
+      {{ diffs.append('Bonjour forwarding: current=' + (_current_policy.bonjourForwarding | default({}) | string) + ' desired=' + (item.bonjourForwarding | default({}) | string)) }}
+      {% endif %}
+      {% if _splash_drift | bool %}
+      {{ diffs.append('Splash auth: current=' + (_current_policy.splashAuthSettings | default('') | string) + ' desired=' + (item.splashAuthSettings | default('') | string)) }}
+      {% endif %}
+      {{ diffs | join(', ') }}
+  loop: "{{ meraki_group_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _policy_comparisons
+
+- name: Aggregate policy results
+  ansible.builtin.set_fact:
+    _policies_checked: "{{ _policy_comparisons.results | map(attribute='ansible_facts._policy_result') | list }}"
+
+- name: Calculate compliance statistics
+  ansible.builtin.set_fact:
+    _compliant_count: "{{ _policies_checked | selectattr('compliant', 'equalto', true) | list | length }}"
+    _drift_count: "{{ _policies_checked | selectattr('drift_detected', 'equalto', true) | list | length }}"
+
+- name: Update drift results
+  ansible.builtin.set_fact:
+    drift_results: "{{ drift_results | combine({
+      'compliant_policies': _compliant_count | int,
+      'drift_detected': _drift_count | int,
+      'policies': _policies_checked
+    }) }}"
+
+- name: Log drift detection summary
+  ansible.builtin.debug:
+    msg: |
+      Drift Detection Summary:
+      - Compliant: {{ _compliant_count }}/{{ drift_results.total_policies }}
+      - Drift Detected: {{ _drift_count }}/{{ drift_results.total_policies }}
+      {% if _drift_count | int > 0 %}
+      
+      Policies with drift:
+      {% for policy in _policies_checked %}
+      {% if policy.drift_detected %}
+      - {{ policy.name }}: {{ policy.differences }}
+      {% endif %}
+      {% endfor %}
+      {% endif %}

@@ -1,0 +1,33 @@
+---
+# Gather current group policies from Meraki Dashboard API
+# This task queries the live state of group policies to compare against desired state
+
+- name: Query existing group policies from network
+  cisco.meraki.networks_group_policies_info:
+    meraki_api_key: "{{ _api_key }}"
+    networkId: "{{ meraki_network_id }}"
+  register: current_group_policies_raw
+  retries: "{{ drift_api_retries }}"
+  delay: "{{ drift_api_retry_delay }}"
+  until: current_group_policies_raw is succeeded
+  no_log: true  # Protect API key from logs
+
+- name: Debug API response (if debug enabled)
+  ansible.builtin.debug:
+    msg: "Retrieved {{ current_group_policies_raw.meraki_response | default([]) | length }} group policies from Meraki"
+    verbosity: 1
+
+- name: Store current state for comparison
+  ansible.builtin.set_fact:
+    current_policies: "{{ current_group_policies_raw.meraki_response | default([]) }}"
+
+- name: Handle empty policy list
+  ansible.builtin.debug:
+    msg: "Warning: No group policies found in network {{ meraki_network_id }}"
+  when: 
+    - current_policies | length == 0
+    - meraki_group_policies | length > 0
+
+- name: Log current policies count
+  ansible.builtin.debug:
+    msg: "Found {{ current_policies | length }} existing group policies in Meraki Dashboard"

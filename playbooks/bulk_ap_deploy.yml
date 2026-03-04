@@ -1,0 +1,15 @@
+---
+# Bulk AP Deployment Playbook
+# Deploys and configures access points in bulk across Meraki networks
+
+- name: Bulk AP Deployment
+  hosts: meraki_orgs
+  gather_facts: false
+  become: false
+
+  vars:
+    # AP deployment configuration variables
+    # Override these in group_vars or inventory
+
+  roles:
+    - meraki_devices

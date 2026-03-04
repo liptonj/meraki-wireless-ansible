@@ -1,0 +1,7 @@
+---
+# Meraki SSID Role - Default Variables
+# Default values for SSID configuration
+
+ssid_name: ""
+ssid_enabled: true
+ssid_auth_mode: "psk"

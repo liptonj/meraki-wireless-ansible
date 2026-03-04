@@ -1,0 +1,7 @@
+---
+# Meraki Devices Role - Main Tasks
+# Handles device deployment and configuration
+
+- name: Device management tasks
+  debug:
+    msg: "Device management tasks to be implemented"

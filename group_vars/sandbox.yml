@@ -1,0 +1,130 @@
+---
+# Sandbox Environment Variables
+# These variables override group_vars/all.yml for the sandbox/test environment
+# Use this for test organizations or dedicated lab networks
+
+# ============================================================================
+# Environment Identification
+# ============================================================================
+
+environment: sandbox
+environment_type: "test"
+
+# ============================================================================
+# Sandbox-Specific API Configuration
+# ============================================================================
+
+# Longer timeout for test environments
+meraki_api_timeout: 60
+
+# More retries for test environments
+meraki_api_retries: 5
+meraki_api_retry_delay: 3
+
+# Conservative rate limiting for testing
+meraki_rate_limit: 3
+
+# ============================================================================
+# Sandbox Organization and Network IDs
+# ============================================================================
+
+# NOTE: These are placeholders! You must:
+# 1. Get your API key from: Meraki Dashboard > My Profile > API access
+# 2. Query organizations: GET /organizations
+# 3. Query networks: GET /organizations/{orgId}/networks
+# 4. Store actual values in vault/secrets.yml
+
+# Your Meraki Organization ID (populated from vault/secrets.yml)
+meraki_org_id: "{{ vault_meraki_org_id | default('YOUR_ORG_ID') }}"
+
+# Your Meraki Network IDs (query via API and store in vault/secrets.yml)
+meraki_network_ids:
+  - "{{ vault_meraki_network_id_1 | default('YOUR_NETWORK_ID_1') }}"
+  # Add additional networks as needed
+
+# ============================================================================
+# Sandbox-Specific SSID Configuration
+# ============================================================================
+
+# Override SSIDs for sandbox testing
+# Use simpler configurations for sandbox (no production RADIUS servers)
+meraki_ssids:
+  # Simple PSK SSID for sandbox testing
+  - name: "Sandbox-Test"
+    enabled: true
+    authMode: "psk"
+    encryptionMode: "wpa2"
+    psk: "{{ vault_sandbox_test_psk | default('TestPassword123!') }}"
+    minBitrate: 11
+    bandSelection: "Dual band operation"
+    perClientBandwidthLimitUp: 0
+    perClientBandwidthLimitDown: 0
+    visible: true
+    availableOnAllAps: true
+  
+  # Example: Open SSID for quick testing (disable in production!)
+  - name: "Sandbox-Open"
+    enabled: false  # Disabled by default for security
+    authMode: "open"
+    encryptionMode: "wpa"
+    minBitrate: 11
+    bandSelection: "Dual band operation"
+    visible: true
+    availableOnAllAps: true
+
+# ============================================================================
+# Sandbox-Specific AP Configuration
+# ============================================================================
+
+# AP naming for sandbox
+meraki_ap_name_pattern: "SANDBOX-{network_name}-AP-{serial[-6:]}"
+
+# Sandbox-specific AP tags
+meraki_ap_tags:
+  - "managed-by-ansible"
+  - "sandbox"
+  - "devnet"
+
+# ============================================================================
+# Sandbox Operational Settings
+# ============================================================================
+
+# Enable dry-run by default in sandbox (safer for shared environment)
+meraki_dry_run: false  # Set to true to test without making changes
+
+# Enable validation
+meraki_validate_changes: true
+
+# More verbose logging for sandbox testing
+meraki_log_changes: true
+meraki_change_log_path: "./logs/sandbox_changes_{{ ansible_date_time.epoch }}.json"
+
+# ============================================================================
+# Sandbox Compliance Rules
+# ============================================================================
+
+# Relaxed compliance rules for sandbox (testing environment)
+meraki_compliance_rules:
+  - name: "encryption_standard"
+    check: "all_ssids_use_wpa2_or_wpa3"
+    severity: "warning"  # Warning instead of error in sandbox
+  
+  # Disable strict PSK checks in sandbox
+  # - name: "psk_strength"
+  #   check: "psk_min_length_8"
+  #   severity: "warning"
+
+# ============================================================================
+# Sandbox Testing Configuration
+# ============================================================================
+
+# Enable test mode features
+meraki_test_mode: true
+
+# Allow less secure configurations in sandbox (for testing)
+meraki_allow_insecure_configs: true  # Only for sandbox!
+
+# Skip certain validations in sandbox
+meraki_skip_validations:
+  - "psk_strength"
+  - "radius_server_reachability"

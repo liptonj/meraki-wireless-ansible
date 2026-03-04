@@ -1,0 +1,7 @@
+---
+# Meraki Devices Role - Default Variables
+# Default values for device configuration
+
+device_serial: ""
+device_name: ""
+device_tags: []

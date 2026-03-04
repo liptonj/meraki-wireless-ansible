@@ -1,0 +1,90 @@
+---
+# Production Inventory Template
+# 
+# INSTRUCTIONS:
+# 1. Copy this file to production.yml: cp inventory/production.yml.example inventory/production.yml
+# 2. Replace all placeholder values with your actual production values
+# 3. Add production.yml to .gitignore (DO NOT commit production.yml to version control)
+# 4. Store sensitive values (API keys, org IDs) in vault/secrets.yml (encrypted)
+#
+# This inventory structure supports multiple organizations and networks
+# for enterprise deployments with multiple Meraki organizations.
+
+all:
+  children:
+    # Meraki Organizations Group
+    # Add multiple organizations if managing multiple Meraki orgs
+    meraki_orgs:
+      hosts:
+        # Example: Primary Production Organization
+        production_primary:
+          # Your production Meraki organization ID
+          # Find it in: Meraki Dashboard > Organization > Settings
+          meraki_org_id: "{{ vault_meraki_org_id_prod }}"
+          
+          # Production API key (MUST be stored in vault/secrets.yml)
+          meraki_api_key: "{{ vault_meraki_api_key_prod }}"
+          
+          # Production API endpoint
+          meraki_base_url: "https://api.meraki.com/api/v1"
+          
+          # Environment identifier
+          environment: production
+          
+          # List of network IDs to manage in this organization
+          # Find network IDs: GET /organizations/{orgId}/networks
+          meraki_network_ids:
+            - "{{ vault_meraki_network_id_prod_1 }}"
+            - "{{ vault_meraki_network_id_prod_2 }}"
+            # Add all production network IDs here
+        
+        # Example: Secondary Organization (if managing multiple orgs)
+        # Uncomment and configure if needed:
+        # production_secondary:
+        #   meraki_org_id: "{{ vault_meraki_org_id_prod_2 }}"
+        #   meraki_api_key: "{{ vault_meraki_api_key_prod_2 }}"
+        #   meraki_base_url: "https://api.meraki.com/api/v1"
+        #   environment: production
+        #   meraki_network_ids:
+        #     - "{{ vault_meraki_network_id_prod_2_1 }}"
+      
+      vars:
+        # Global variables for all production organizations
+        # These apply to all hosts unless overridden
+        
+        # Production API timeout (shorter for production)
+        meraki_api_timeout: 30
+        
+        # Retry configuration
+        meraki_api_retries: 3
+        meraki_api_retry_delay: 1
+        
+        # Rate limiting (be conservative in production)
+        meraki_rate_limit: 3
+        
+        # Production-specific settings
+        # Enable dry-run mode for safety (set to false when ready)
+        meraki_dry_run: false
+        
+        # Enable change validation before applying
+        meraki_validate_changes: true
+
+# Control node: localhost (runs Ansible locally, connects to Meraki API)
+localhost:
+  ansible_connection: local
+  ansible_host: localhost
+  ansible_python_interpreter: auto_silent
+
+# Example: Staging/Test Environment Group
+# Uncomment and configure if you have a staging environment:
+# staging:
+#   children:
+#     meraki_orgs:
+#       hosts:
+#         staging_org:
+#           meraki_org_id: "{{ vault_meraki_org_id_staging }}"
+#           meraki_api_key: "{{ vault_meraki_api_key_staging }}"
+#           meraki_base_url: "https://api.meraki.com/api/v1"
+#           environment: staging
+#           meraki_network_ids:
+#             - "{{ vault_meraki_network_id_staging_1 }}"
