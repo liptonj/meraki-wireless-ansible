@@ -46,7 +46,7 @@ meraki_ap_tags:
 meraki_ap_config:
   # Enable LED status lights
   ledLightsOn: true
-  
+
   # Enable uplink connectivity monitoring
   uplinkClientSampling:
     enabled: true
@@ -66,12 +66,12 @@ meraki_compliance_rules:
   - name: "encryption_standard"
     check: "all_ssids_use_wpa2_or_wpa3"
     severity: "error"  # Options: error, warning
-  
+
   # Require strong PSK (if using PSK auth)
   - name: "psk_strength"
     check: "psk_min_length_8"
     severity: "warning"
-  
+
   # Require bandwidth limits on guest networks
   - name: "guest_bandwidth_limits"
     check: "guest_ssids_have_bandwidth_limits"

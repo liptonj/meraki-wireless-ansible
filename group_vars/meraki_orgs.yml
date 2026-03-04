@@ -61,7 +61,7 @@ meraki_ssids:
     perClientBandwidthLimitDown: 0
     visible: true
     availableOnAllAps: true
-  
+
   # Example: Open SSID for quick testing (disable in production!)
   - name: "Sandbox-Open"
     enabled: false  # Disabled by default for security
@@ -108,7 +108,7 @@ meraki_compliance_rules:
   - name: "encryption_standard"
     check: "all_ssids_use_wpa2_or_wpa3"
     severity: "warning"  # Warning instead of error in sandbox
-  
+
   # Disable strict PSK checks in sandbox
   # - name: "psk_strength"
   #   check: "psk_min_length_8"

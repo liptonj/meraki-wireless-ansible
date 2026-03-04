@@ -1,5 +1,5 @@
 # GitHub Actions CI/CD Pipeline for Meraki Wireless Ansible
-# 
+#
 # This workflow validates Ansible playbooks through multiple stages:
 # 1. Lint - Checks code quality and best practices with ansible-lint
 # 2. Syntax Check - Validates YAML syntax and Ansible playbook structure
@@ -25,17 +25,17 @@ jobs:
   lint:
     name: Lint Playbooks and Roles
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          
+
       - name: Cache Ansible Galaxy collections
         uses: actions/cache@v4
         with:
@@ -43,15 +43,15 @@ jobs:
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
           restore-keys: |
             ${{ runner.os }}-ansible-galaxy-
-            
+
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          
+
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install -r requirements.yml
-          
+
       - name: Run ansible-lint
         uses: ansible/ansible-lint-action@v6
         with:
@@ -74,17 +74,17 @@ jobs:
     name: Syntax Check Playbooks
     runs-on: ubuntu-latest
     needs: lint  # Run after lint passes
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          
+
       - name: Cache Ansible Galaxy collections
         uses: actions/cache@v4
         with:
@@ -92,15 +92,15 @@ jobs:
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
           restore-keys: |
             ${{ runner.os }}-ansible-galaxy-
-            
+
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          
+
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install -r requirements.yml
-          
+
       - name: Syntax check all playbooks
         run: |
           echo "🔍 Running syntax check on all playbooks..."
@@ -121,23 +121,23 @@ jobs:
     name: Dry Run Against DevNet Sandbox
     runs-on: ubuntu-latest
     needs: syntax-check  # Run after syntax check passes
-    
+
     # Only run if we have the required secret
     # Skip gracefully if secret is not available (e.g., in forks)
     if: |
       (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') &&
       secrets.MERAKI_DASHBOARD_API_KEY != ''
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          
+
       - name: Cache Ansible Galaxy collections
         uses: actions/cache@v4
         with:
@@ -145,15 +145,15 @@ jobs:
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
           restore-keys: |
             ${{ runner.os }}-ansible-galaxy-
-            
+
       - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          
+
       - name: Install Ansible collections
         run: |
           ansible-galaxy collection install -r requirements.yml
-          
+
       - name: Configure Meraki API credentials
         # Set up environment variables for Ansible vault variables
         # The sandbox inventory uses vault variables that we'll provide via env vars
@@ -164,7 +164,7 @@ jobs:
           # Create a temporary vault file or use environment variables
           # For simplicity, we'll pass these as extra vars
           echo "✅ Meraki API credentials configured"
-          
+
       - name: Dry run playbooks (check mode)
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
@@ -173,21 +173,21 @@ jobs:
         run: |
           echo "🧪 Running dry-run (check mode) against Meraki API..."
           echo "This validates playbook execution without making actual changes"
-          
+
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
               echo ""
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               echo "📋 Testing: $(basename $playbook)"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
+
               # Compliance and snapshot playbooks target meraki_networks group
               if [[ "$playbook" == *"compliance"* ]] || [[ "$playbook" == *"snapshot"* ]]; then
                 INVENTORY="inventory/sandbox_compliance.yml"
               else
                 INVENTORY="inventory/sandbox.yml"
               fi
-              
+
               ansible-playbook \
                 --check \
                 --diff \
@@ -201,7 +201,7 @@ jobs:
                 }
             fi
           done
-          
+
           echo ""
           echo "✅ All playbooks passed dry-run validation"
 
@@ -211,29 +211,29 @@ jobs:
   security-scan:
     name: Security Scan for Secrets
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           # Fetch full history for better secret detection
           fetch-depth: 0
-          
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          
+
       - name: Install detect-secrets
         run: |
           pip install detect-secrets
-          
+
       - name: Scan for secrets
         run: |
           echo "🔒 Scanning codebase for secrets and sensitive data..."
           echo ""
-          
+
           # Check if baseline exists, create if not
           if [ ! -f .secrets.baseline ]; then
             echo "Creating initial secrets baseline..."
@@ -242,7 +242,7 @@ jobs:
               --exclude-lines 'password.*=.*example|api.*key.*=.*example|#.*test|#.*example|MERAKI.*=.*your|vault_.*:.*"{{' \
               . > .secrets.baseline || true
           fi
-          
+
           # Run scan and compare with baseline
           detect-secrets scan \
             --exclude-files '\.lock$|\.log$|\.cache$|\.git/|\.github/' \
@@ -254,9 +254,9 @@ jobs:
               echo "If these are false positives, update .secrets.baseline"
               exit 1
           }
-          
+
           echo "✅ No new secrets detected in codebase"
-          
+
       - name: Upload secrets baseline
         if: always()
         uses: actions/upload-artifact@v4
@@ -271,10 +271,10 @@ jobs:
     name: Validation Summary
     runs-on: ubuntu-latest
     needs: [lint, syntax-check, dry-run, security-scan]
-    
+
     # Run regardless of previous job outcomes to provide summary
     if: always()
-    
+
     steps:
       - name: Check validation status
         run: |
@@ -284,17 +284,17 @@ jobs:
           echo ""
           echo "✅ Lint: ${{ needs.lint.result }}"
           echo "✅ Syntax Check: ${{ needs.syntax-check.result }}"
-          
+
           # Dry-run may be skipped if secrets are not available
           if [ "${{ needs.dry-run.result }}" == "skipped" ]; then
             echo "⏭️  Dry Run: skipped (secrets not available)"
           else
             echo "✅ Dry Run: ${{ needs.dry-run.result }}"
           fi
-          
+
           echo "✅ Security Scan: ${{ needs.security-scan.result }}"
           echo ""
-          
+
           # Check if any required jobs failed
           FAILED=0
           if [ "${{ needs.lint.result }}" != "success" ]; then
@@ -313,7 +313,7 @@ jobs:
             echo "❌ Security scan job failed"
             FAILED=1
           fi
-          
+
           if [ $FAILED -eq 1 ]; then
             echo ""
             echo "❌ Validation pipeline failed. Please review the errors above."
