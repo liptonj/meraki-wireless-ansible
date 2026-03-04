@@ -1,15 +1,43 @@
 ---
 # SSID Management Playbook
-# Manages wireless SSID configuration across Meraki networks
+# Deploys and configures wireless SSIDs across Meraki networks
+#
+# Usage:
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml
+#
+#   # Dry-run mode
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml --check --diff
 
-- name: Manage Meraki SSIDs
+- name: Deploy Meraki SSIDs
   hosts: meraki_orgs
   gather_facts: false
   become: false
 
-  vars:
-    # SSID configuration variables
-    # Override these in group_vars or inventory
+  pre_tasks:
+    - name: Load API key from environment
+      ansible.builtin.set_fact:
+        meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+      no_log: true
+      tags: always
+
+    - name: Verify API key is available
+      ansible.builtin.assert:
+        that:
+          - meraki_api_key | length > 0
+        fail_msg: "MERAKI_DASHBOARD_API_KEY environment variable or vault_meraki_api_key must be set"
+        quiet: true
+      tags: always
 
   roles:
-    - meraki_ssid
+    - role: meraki_ssid
+      vars:
+        meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
+
+  post_tasks:
+    - name: SSID deployment summary
+      ansible.builtin.debug:
+        msg: |
+          SSID deployment complete!
+          Network: {{ meraki_network_id | default('N/A') }}
+          SSIDs configured: {{ meraki_ssids | default([]) | length }}
+      tags: always
