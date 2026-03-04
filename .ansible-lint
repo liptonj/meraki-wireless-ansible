@@ -1,29 +1,16 @@
+---
 # Ansible Lint Configuration
-# See: https://ansible-lint.readthedocs.io/en/latest/configuring.html
-#
-# This file configures ansible-lint behavior for the Meraki Wireless project
-# Adjust rules based on your team's preferences and requirements
+# See: https://ansible-lint.readthedocs.io/configuring/
 
-# Skip specific rules that don't apply to our use case
-# Format: rule_id or rule_id[subrule]
 skip_list:
-  # Line length - allow longer lines for readability
   - yaml[line-length]
-  
-  # Name casing - allow flexibility in naming conventions
   - name[casing]
-  
-  # Role name - allow descriptive role names
   - name[role-name]
-  
-  # Command instead of module - sometimes necessary for Meraki API
   - command-instead-of-module
-  
-  # No log password - we use environment variables, not inline passwords
   - no-log-password
+  - var-naming[no-role-prefix]
+  - run-once[task]
 
-# Enable specific rules (if you want to be strict)
-# By default, all rules are enabled except those in skip_list
 enable_list:
   - yaml
   - name
@@ -31,48 +18,15 @@ enable_list:
   - risky-shell-pipe
   - risky-file-permissions
 
-# Exclude paths from linting
-# These directories/files don't contain Ansible code
 exclude_paths:
-  - .github/          # GitHub Actions workflows
-  - .devcontainer/    # Dev container configuration
-  - vault/            # Ansible Vault files (encrypted)
-  - .ansible/         # Ansible cache/temp files
-  - venv/             # Python virtual environment
-  - .git/             # Git directory
-  - __pycache__/      # Python cache
-  - "*.pyc"           # Python bytecode
-  - .env              # Environment files (may contain secrets)
+  - .github/
+  - .devcontainer/
+  - vault/
+  - .ansible/
+  - venv/
+  - .git/
+  - __pycache__/
+  - "*.pyc"
+  - .env
 
-# Use colored output for better readability
 use_default_rules: true
-
-# Verbosity level (0-4)
-# Higher numbers = more detailed output
-verbosity: 1
-
-# Parse errors as fatal
-# Set to false to continue linting even if there are parse errors
-parseable: false
-
-# Tags to include/exclude
-# Uncomment to filter by tags:
-# tags:
-#   - production
-#   - security
-
-# Rules configuration
-# Override default rule behavior
-rules:
-  # Allow certain risky operations if documented
-  risky-shell-pipe:
-    # Allow pipes in shell commands if they're documented
-    skip_list:
-      - ".*"  # Skip all for now, adjust as needed
-
-# Custom rules directory (if you have project-specific rules)
-# rulesdir: .ansible-lint-rules
-
-# Cache configuration
-# Cache results to speed up subsequent runs
-cache: true
