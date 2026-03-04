@@ -32,8 +32,8 @@ meraki-wireless-ansible/
 │
 ├── playbooks/                 # Main Ansible playbooks
 │   ├── ssid_management.yml    # SSID configuration management
-│   ├── bulk_ap_deploy.yml     # Bulk access point deployment
-│   └── compliance_check.yml   # Compliance validation
+│   ├── compliance_check.yml   # Compliance validation
+│   └── config_snapshot.yml    # GitOps config capture
 │
 ├── roles/                     # Reusable Ansible roles
 │   ├── meraki_ssid/           # SSID management role
@@ -43,18 +43,14 @@ meraki-wireless-ansible/
 │   │   │   └── main.yml       # SSID management tasks
 │   │   └── handlers/
 │   │       └── main.yml       # Handlers (notifications)
-│   ├── meraki_devices/        # Device management role
+│   ├── meraki_compliance/     # Compliance checking role
 │   │   ├── defaults/
-│   │   │   └── main.yml       # Default variables for devices
-│   │   └── tasks/
-│   │       └── main.yml       # Device management tasks
-│   └── meraki_compliance/     # Compliance checking role
-│       ├── defaults/
-│       │   └── main.yml       # Default variables for compliance
-│       ├── tasks/
-│       │   └── main.yml       # Compliance check tasks
-│       └── templates/
-│           └── compliance_report.md.j2  # Report template
+│   │   │   └── main.yml       # Default variables for compliance
+│   │   ├── tasks/
+│   │   │   └── main.yml       # Compliance check tasks
+│   │   └── templates/
+│   │       └── compliance_report.md.j2  # Report template
+│   └── meraki_snapshot/       # GitOps config capture role
 │
 ├── inventory/                 # Host and group definitions
 │   ├── sandbox.yml            # DevNet sandbox inventory
@@ -74,8 +70,8 @@ meraki-wireless-ansible/
 └── docs/                      # Documentation
     ├── GETTING_STARTED.md     # Setup guide
     ├── ARCHITECTURE.md        # This file
-    ├── TROUBLESHOOTING.md     # Troubleshooting guide
-    └── HOST_BRIEFING.md       # Host briefing document
+    ├── COMPLIANCE.md          # Compliance and security baselines
+    └── TROUBLESHOOTING.md     # Troubleshooting guide
 ```
 
 ## Component Overview

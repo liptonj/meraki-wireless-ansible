@@ -104,7 +104,6 @@ fi
 info "Test 3: Checking playbook syntax..."
 PLAYBOOKS=(
     "playbooks/ssid_management.yml"
-    "playbooks/bulk_ap_deploy.yml"
     "playbooks/compliance_check.yml"
 )
 
