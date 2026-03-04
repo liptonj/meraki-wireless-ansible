@@ -11,14 +11,15 @@ Automate Cisco Meraki wireless network management with Ansible playbooks. This p
 This project was created for **Unplugged Connectivity** with Dan Klamert. Follow along with the video tutorial to learn network automation with Ansible and Meraki.
 
 **Video Timestamps:**
-- `00:00` - Introduction and project overview
-- `05:00` - Prerequisites and environment setup
-- `15:00` - Forking and cloning the repository
-- `20:00` - Environment setup and API key configuration
-- `30:00` - Running your first playbook
-- `40:00` - Understanding the architecture
-- `50:00` - Troubleshooting common issues
-- `55:00` - Q&A and next steps
+- `00:00` - Cold open: See compliance alerting in action
+- `01:00` - Introduction: Why automate wireless with Ansible?
+- `03:00` - Fork, clone, and configure GitHub secrets
+- `09:00` - Deploy an SSID via GitHub Actions
+- `14:00` - Compliance check runs automatically — all green
+- `18:00` - Simulate a rogue change — compliance fails
+- `21:00` - Alerts fire: GitHub Issue + Webex Teams notification
+- `24:00` - Workflow triggers: schedule, webhook, and manual dispatch
+- `27:00` - Recap and next steps
 
 ## 🚀 Quick Start
 
@@ -188,11 +189,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 In this episode, we'll build a complete Ansible automation project for managing Meraki wireless networks. Perfect for network engineers and DevOps professionals looking to automate repetitive tasks.
 
 What you'll learn:
-✅ Setting up Ansible for network automation
-✅ Using the Cisco Meraki API with Ansible
-✅ Creating reusable playbooks and roles
-✅ Managing SSIDs, access points, and compliance checks
-✅ Best practices for network automation
+✅ Deploy wireless SSIDs via GitHub Actions + Ansible + Meraki API
+✅ Run automated compliance checks — no local tools needed
+✅ Auto-alert on violations via GitHub Issues + Webex Teams
+✅ Trigger workflows on push, schedule, or Meraki webhook
+✅ Build a closed-loop wireless compliance system in CI/CD
 
 🔗 Links:
 - Repository: [GitHub URL]
@@ -200,14 +201,15 @@ What you'll learn:
 - Ansible Documentation: https://docs.ansible.com/
 
 📚 Chapters:
-00:00 Introduction
-05:00 Prerequisites & Environment Setup
-15:00 Forking & Cloning
-20:00 Environment Setup
-30:00 First Playbook
-40:00 Architecture Deep Dive
-50:00 Troubleshooting
-55:00 Q&A
+00:00 Cold Open — Compliance Alert Demo
+01:00 Introduction — Why Automate Wireless?
+03:00 Fork, Clone & Configure GitHub Secrets
+09:00 Deploy an SSID via GitHub Actions
+14:00 Compliance Check Runs Automatically
+18:00 Simulate a Rogue Change
+21:00 Alerts: GitHub Issue + Webex Teams
+24:00 Workflow Triggers: Schedule, Webhook & Manual
+27:00 Recap & Next Steps
 
 #NetworkAutomation #Ansible #Meraki #DevOps #NetworkEngineering #Cisco #InfrastructureAsCode
 ```
