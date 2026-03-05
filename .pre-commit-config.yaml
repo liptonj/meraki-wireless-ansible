@@ -1,60 +1,25 @@
-# Pre-commit hooks configuration
-# Automatically runs checks before each commit to ensure code quality
-#
-# Installation:
-#   1. Install pre-commit: pip install pre-commit
-#   2. Install hooks: pre-commit install
-#   3. Hooks will run automatically on git commit
-#
-# Manual run: pre-commit run --all-files
-#
-# For YouTube tutorial viewers: This helps catch mistakes early!
-
 repos:
-  # Standard pre-commit hooks
-  # Common file checks and fixes
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0  # Latest stable version as of February 2026
+    rev: v4.5.0
     hooks:
-      # Remove trailing whitespace
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-
-      # Ensure files end with newline
       - id: end-of-file-fixer
-
-      # Check YAML syntax
       - id: check-yaml
-        args: [--unsafe]  # Allow custom tags for Ansible
-
-      # Check JSON syntax
+        args: [--unsafe]
       - id: check-json
-
-      # Prevent committing large files
       - id: check-added-large-files
         args: [--maxkb=1000]
-
-      # Check for merge conflicts
       - id: check-merge-conflict
-
-      # Check for debug statements (print, pdb, etc.)
       - id: debug-statements
-
-      # Check for files that would conflict in case-insensitive filesystems
       - id: check-case-conflict
-
-      # Ensure shell scripts have proper shebang
       - id: check-shebang-scripts-are-executable
 
-  # Ansible Lint - Ansible-specific best practices
-  # Catches common mistakes in playbooks and roles
   - repo: https://github.com/ansible/ansible-lint
     rev: v25.0.0
     hooks:
       - id: ansible-lint
-        # Only check playbooks and roles, skip other files
         files: ^(playbooks|roles|group_vars|host_vars|inventory)/.*\.(yml|yaml)$
-        # Exclude paths that don't need linting
         exclude: |
           (?x)^(
             \.github/|
@@ -63,14 +28,11 @@ repos:
             \.ansible/
           )
 
-  # YAML Lint - Additional YAML validation
-  # Catches YAML formatting issues
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.35.1  # Latest version as of February 2026
+    rev: v1.35.1
     hooks:
       - id: yamllint
-        args: [-c=.yamllint]  # Use project-specific config if exists
-        # Only check YAML files
+        args: [-c=.yamllint]
         files: \.(yml|yaml)$
         exclude: |
           (?x)^(
@@ -80,29 +42,22 @@ repos:
             \.ansible/
           )
 
-  # Detect Secrets - Prevents committing secrets/credentials
-  # CRITICAL for security - catches API keys, passwords, etc.
   - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0  # Latest version as of February 2026
+    rev: v1.4.0
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        # Exclude files that are meant to contain secrets (vault files)
         exclude: |
           (?x)^(
             vault/|
             \.secrets\.baseline|
             \.env\.example
           )
-        # Additional arguments for better detection
         additional_dependencies: ['pyyaml']
 
-  # Shell script linting
-  # Ensures shell scripts follow best practices
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.9.0.6  # Latest version as of February 2026
+    rev: v0.9.0.6
     hooks:
       - id: shellcheck
-        # Only check shell scripts
         files: \.(sh|bash)$
-        args: [-e, SC1091]  # Ignore "Can't follow non-constant source" warnings
+        args: [-e, SC1091]

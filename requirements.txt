@@ -1,36 +1,10 @@
 # Python dependencies for Meraki Wireless Ansible
-# Pinned versions for reproducibility (February 2026)
 # Install with: pip install -r requirements.txt
-#
-# Note: Always use a virtual environment (venv) to avoid conflicts
-# Create one with: python3 -m venv venv
-# Activate with: source venv/bin/activate
 
-# Ansible Core - Automation engine
-# Version 2.20.2 released January 2026, requires Python >=3.12
 ansible-core==2.20.2
-
-# Ansible Lint - Code quality and best practices checker
-# Ensures playbooks follow Ansible best practices
 ansible-lint>=25.0.0
-
-# Meraki Python SDK - Official Cisco Meraki API client
-# Version 2.0.3 released May 2025, required by cisco.meraki collection
 meraki==2.0.3
-
-# Python Dotenv - Load environment variables from .env file
-# Keeps API keys out of code (security best practice)
 python-dotenv==1.0.1
-
-# Additional utilities for development and testing
-# YAML parser for configuration files
 pyyaml==6.0.2
-
-# Jinja2 - Template engine used by Ansible
-# Required for Ansible templating functionality
 jinja2==3.1.6
-
-# Detect Secrets - Security scanning tool
-# Scans codebase for accidentally committed secrets and sensitive data
-# Used in CI/CD pipeline for security validation
 detect-secrets>=1.4.0

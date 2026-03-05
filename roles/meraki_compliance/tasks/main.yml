@@ -1,11 +1,4 @@
 ---
-# Meraki Compliance Role - Main Tasks
-#
-# This role performs compliance checking by:
-# 1. Gathering current SSID configurations from Meraki Dashboard
-# 2. Comparing against desired state from group_vars
-# 3. Generating a compliance report
-
 - name: Initialize compliance results
   ansible.builtin.set_fact:
     compliance_results:
@@ -79,7 +72,6 @@
     current_ssid: "{{ item }}"
     desired_ssid: "{{ desired_config.ssids | default([]) | selectattr('name', 'equalto', item.name | default('')) | first | default({}) }}"
 
-    # Compare each field and build differences
     enabled_diff: >-
       {{ {'current': current_ssid.enabled | default(false),
           'desired': desired_ssid.enabled | default(current_ssid.enabled | default(false))}
@@ -123,7 +115,6 @@
             != (current_ssid.bandSelection | default('unknown'))
          else {} }}
 
-    # Combine all differences into a single dict
     ssid_differences: >-
       {{
         dict(
@@ -137,10 +128,8 @@
         ) | select('length') | list | dict
       }}
 
-    # Determine if SSID is compliant (has desired config AND matches)
     ssid_compliant: "{{ (desired_ssid | length > 0) and (ssid_differences | length == 0) }}"
 
-    # Build SSID check result
     ssid_check_result:
       name: "{{ current_ssid.name | default('Unknown') }}"
       number: "{{ current_ssid.number | default(0) }}"
