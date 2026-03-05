@@ -26,7 +26,7 @@ meraki_desired_ssids:
       minBitrate: 11
       name: Corp-Secure
       visible: true
-  - network_name: LAB-SITE1
+  - network_name: LAB-Site1
     ssids:
     - authMode: psk
       bandSelection: Dual band operation
