@@ -33,6 +33,17 @@ meraki_ssids:
   availableOnAllAps: true
 
 # AP Configuration
+- name: "test"
+  enabled: true
+  authMode: "psk"
+  encryptionMode: "wpa3"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  perClientBandwidthLimitUp: 0
+  perClientBandwidthLimitDown: 0
+  visible: true
+  availableOnAllAps: true
+  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
 meraki_ap_name_pattern: "{site}-{network_name}-AP-{serial[-6:]}"
 
 meraki_ap_tags:
