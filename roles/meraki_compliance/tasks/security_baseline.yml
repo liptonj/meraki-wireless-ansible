@@ -62,7 +62,10 @@
         'rule': 'guest_bandwidth_limits',
         'severity': 'warning',
         'message': 'Guest SSID "' + item.name | default('Unknown') + '" has no bandwidth limits',
-        'current_value': 'Upload: ' + (item.perClientBandwidthLimitUp | default(0) | string) + ', Download: ' + (item.perClientBandwidthLimitDown | default(0) | string),
+        'current_value': 'Upload: '
+          + (item.perClientBandwidthLimitUp | default(0) | string)
+          + ', Download: '
+          + (item.perClientBandwidthLimitDown | default(0) | string),
         'expected': 'Bandwidth limits > 0 for both upload and download'
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
@@ -137,7 +140,10 @@
     compliance_results: >-
       {{
         compliance_results | combine({
-          'networks_non_compliant': compliance_results.networks_non_compliant + (1 if (security_violations | selectattr('severity', 'equalto', 'critical') | list | length > 0) else 0)
+          'networks_non_compliant': compliance_results.networks_non_compliant
+            + (1 if (security_violations
+               | selectattr('severity', 'equalto', 'critical')
+               | list | length > 0) else 0)
         })
       }}
   when: security_violations | selectattr('severity', 'equalto', 'critical') | list | length > 0
