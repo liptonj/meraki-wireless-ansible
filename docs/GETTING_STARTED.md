@@ -1,6 +1,6 @@
 # Getting Started Guide
 
-This guide will walk you through setting up the Meraki Wireless Ansible project from scratch. You'll need access to a Meraki organization with API enabled — either your own or a test/lab environment.
+This guide will walk you through setting up the Meraki Wireless Ansible project from scratch. You'll need access to a Meraki organization with API enabled.
 
 ## Table of Contents
 
@@ -103,7 +103,7 @@ If successful, you'll see a JSON response with network information.
 
 ### Test Environment Recommendations
 
-For learning and testing, consider using a dedicated test organization or network to avoid impacting production:
+Consider using a dedicated test network to validate changes before applying to production:
 
 - **Separate test network** — Create a network in your org specifically for automation testing
 - **Read-only first** — Start with read-only operations (the `_info` modules) before running write operations
@@ -212,8 +212,8 @@ ansible-galaxy collection list
    # Your Meraki organization ID
    MERAKI_ORG_ID=your_org_id_here
    
-   # Environment: sandbox (for testing) or production
-   ENVIRONMENT=sandbox
+   # Environment: production
+   ENVIRONMENT=production
    ```
 
 4. **Important**: The `.env` file is gitignored, so your secrets won't be committed.

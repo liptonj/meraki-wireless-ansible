@@ -19,10 +19,10 @@ Define your desired SSID configurations in `group_vars/meraki_networks.yml`:
 
 ```yaml
 meraki_desired_ssids:
-  - network_name: "sandbox_network"
+  - network_name: "lab_site1"
     network_id: "{{ vault_meraki_network_id_1 }}"
     ssids:
-      - name: "Sandbox-Test"
+      - name: "Corp-Secure"
         enabled: true
         authMode: "psk"
         encryptionMode: "wpa2"
@@ -35,10 +35,10 @@ meraki_desired_ssids:
 
 ```bash
 # Run compliance check with the compliance inventory
-ansible-playbook playbooks/compliance_check.yml -i inventory/sandbox_compliance.yml
+ansible-playbook playbooks/compliance_check.yml -i inventory/production_compliance.yml
 
 # Dry-run mode (check for drift without changes)
-ansible-playbook playbooks/compliance_check.yml -i inventory/sandbox_compliance.yml --check --diff
+ansible-playbook playbooks/compliance_check.yml -i inventory/production_compliance.yml --check --diff
 ```
 
 ### 3. Review Report
@@ -119,7 +119,7 @@ The `config_snapshot.yml` playbook pulls live SSID configuration from Meraki, fi
 On subsequent runs, the snapshot is compared against the stored baseline. Any difference indicates drift from manual Dashboard changes.
 
 ```bash
-ansible-playbook playbooks/config_snapshot.yml -i inventory/sandbox_compliance.yml
+ansible-playbook playbooks/config_snapshot.yml -i inventory/production_compliance.yml
 ```
 
 ## Configuration Reference
@@ -154,7 +154,7 @@ meraki_desired_ssids:
 After detecting drift, restore compliance by re-deploying SSIDs:
 
 ```bash
-ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml
+ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml
 ```
 
 Or trigger the deploy workflow via GitHub Actions.
