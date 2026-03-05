@@ -77,7 +77,7 @@ This will automatically run linting and checks before each commit.
 cp .env.example .env
 cp vault/secrets.yml.example vault/secrets.yml
 
-# Edit .env with your DevNet sandbox credentials
+# Edit .env with your Meraki API credentials
 # (See GETTING_STARTED.md for details)
 ```
 
@@ -138,7 +138,7 @@ make lint
 # 2. Check syntax
 make test
 
-# 3. Test against sandbox (if applicable)
+# 3. Test against your environment (if applicable)
 ansible-playbook --check playbooks/your_playbook.yml
 
 # 4. Run with verbose output to verify
@@ -150,7 +150,7 @@ ansible-playbook -vv playbooks/your_playbook.yml
 - [ ] Code follows style guidelines
 - [ ] All playbooks pass syntax check
 - [ ] Linting passes without errors
-- [ ] Changes work in sandbox environment
+- [ ] Changes work in target environment
 - [ ] Documentation is updated
 - [ ] No secrets or API keys committed
 
@@ -258,7 +258,7 @@ Brief description of changes
 
 ## Testing
 How was this tested?
-- [ ] Tested in sandbox
+- [ ] Tested in target environment
 - [ ] Tested in production (if applicable)
 - [ ] Added new tests
 
@@ -277,7 +277,7 @@ Write clear, descriptive commit messages:
 # Good
 git commit -m "Add retry logic for rate-limited API calls"
 git commit -m "Fix authentication error handling in meraki_ssid role"
-git commit -m "Update getting started guide with DevNet instructions"
+git commit -m "Update getting started guide"
 
 # Bad
 git commit -m "fix stuff"
@@ -334,7 +334,7 @@ What actually happened
 - Ansible version: `ansible --version`
 - Python version: `python --version`
 - OS: macOS/Linux/Windows
-- Environment: Sandbox/Production
+- Environment name
 
 ## Logs
 Include relevant logs (use `-vvv` for verbose output)
@@ -409,8 +409,8 @@ meraki_api_timeout: 30
 
 # group_vars/meraki_orgs.yml
 # SSID deployment config for meraki_orgs group
-environment: sandbox
-meraki_api_timeout: 60  # Longer timeout for sandbox
+meraki_environment: production
+meraki_api_timeout: 60
 ```
 
 ## Documentation Contributions

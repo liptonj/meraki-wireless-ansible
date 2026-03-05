@@ -60,9 +60,9 @@ meraki-wireless-ansible/
 │           └── main.yml       # Pull, filter, compare, save
 │
 ├── inventory/                 # Host and group definitions
-│   ├── sandbox.yml            # DevNet sandbox inventory (meraki_orgs)
-│   ├── sandbox_compliance.yml # Compliance inventory (meraki_networks)
-│   └── production.yml.example # Production inventory template
+│   ├── production.yml         # Production inventory (meraki_orgs)
+│   ├── production_compliance.yml # Compliance inventory (meraki_networks)
+│   └── development.yml.example # Development inventory template
 │
 ├── group_vars/                # Group-specific variables
 │   ├── all.yml                # Variables for all hosts
@@ -141,19 +141,19 @@ meraki_ssid/
 
 Inventory files define **where** playbooks run. They list hosts and organize them into groups.
 
-**Example: `inventory/sandbox.yml`**
+**Example: `inventory/production.yml`**
 ```yaml
 all:
   children:
     meraki_orgs:              # Group name (referenced in playbooks)
       hosts:
-        sandbox:              # Host name
+        labnet:                # Host name
           meraki_org_id: "{{ vault_meraki_org_id }}"
           meraki_api_key: "{{ vault_meraki_api_key }}"
 ```
 
 **Key Concepts:**
-- **Hosts**: Individual targets (e.g., `sandbox`, `production-org-1`)
+- **Hosts**: Individual targets (e.g., `labnet`, `secondary-org`)
 - **Groups**: Collections of hosts (e.g., `meraki_orgs`)
 - **Host Variables**: Variables specific to a host
 - **Group Variables**: Variables for all hosts in a group
@@ -170,8 +170,8 @@ meraki_api_timeout: 30
 
 **`group_vars/meraki_orgs.yml`** - SSID deployment config for `meraki_orgs` inventory group:
 ```yaml
-environment: sandbox
-meraki_api_timeout: 60  # Override for sandbox
+meraki_environment: production
+meraki_api_timeout: 60
 ```
 
 ### Ansible Configuration (`ansible.cfg`)
@@ -180,7 +180,7 @@ The `ansible.cfg` file configures Ansible behavior:
 
 ```ini
 [defaults]
-inventory = inventory/sandbox.yml    # Default inventory file
+inventory = inventory/production.yml  # Default inventory file
 host_key_checking = False             # Don't check SSH host keys
 retry_files_enabled = False           # Don't create retry files
 gathering = smart                     # Smart fact gathering
@@ -206,7 +206,7 @@ Understanding data flow is crucial for debugging and customization.
          ▼
 ┌─────────────────┐
 │   Inventory     │◄─── Defines hosts and groups
-│  (sandbox.yml)  │
+│ (production.yml)│
 └────────┬────────┘
          │
          ▼
@@ -252,11 +252,11 @@ Understanding data flow is crucial for debugging and customization.
 1. **User executes**: `ansible-playbook playbooks/ssid_management.yml`
 
 2. **Ansible reads `ansible.cfg`**:
-   - Determines which inventory file to use (`inventory/sandbox.yml`)
+   - Determines which inventory file to use (`inventory/production.yml`)
    - Sets connection and other defaults
 
-3. **Ansible loads inventory** (`inventory/sandbox.yml`):
-   - Identifies target hosts (`sandbox`)
+3. **Ansible loads inventory** (`inventory/production.yml`):
+   - Identifies target hosts (`labnet`)
    - Groups hosts (`meraki_orgs`)
    - Loads host-specific variables
 
@@ -324,9 +324,9 @@ vars:
   ssid_enabled: true  # Overrides group vars
 
 # 4. Inventory host variables (highest priority)
-# inventory/sandbox.yml
+# inventory/production.yml
 hosts:
-  sandbox:
+  labnet:
     ssid_enabled: false  # Overrides everything
 ```
 
@@ -390,8 +390,8 @@ $ ansible-playbook playbooks/ssid_management.yml
 1. **Initialization**
    ```
    Ansible reads ansible.cfg
-   → Loads inventory: inventory/sandbox.yml
-   → Identifies hosts: sandbox
+   → Loads inventory: inventory/production.yml
+   → Identifies hosts: labnet
    → Groups: meraki_orgs
    ```
 
@@ -402,10 +402,10 @@ $ ansible-playbook playbooks/ssid_management.yml
    → meraki_api_timeout: 30
    
    Load group_vars/meraki_orgs.yml
-   → environment: sandbox
+   → meraki_environment: production
    → meraki_api_timeout: 60 (overrides all.yml)
    
-   Load inventory/sandbox.yml host vars
+   Load inventory/production.yml host vars
    → meraki_org_id: "YOUR_ORG_ID"
    → meraki_api_key: "***" (from vault or .env)
    ```
@@ -414,7 +414,7 @@ $ ansible-playbook playbooks/ssid_management.yml
    ```
    Play: Manage Meraki SSIDs
    → Target: hosts in meraki_orgs group
-   → Found: sandbox host
+   → Found: labnet host
    ```
 
 4. **Role Execution**
@@ -465,8 +465,8 @@ Different configurations for different environments:
 
 ```
 inventory/
-├── sandbox.yml        # DevNet sandbox
-└── production.yml     # Production (not in repo)
+├── production.yml     # Production environment
+└── development.yml   # Development (not in repo)
 
 group_vars/
 ├── all.yml            # Common settings

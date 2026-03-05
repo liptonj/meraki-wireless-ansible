@@ -6,7 +6,7 @@ This guide covers common errors, their causes, and solutions. If you encounter a
 
 1. [Rate Limiting](#rate-limiting)
 2. [Authentication Errors](#authentication-errors)
-3. [Sandbox Limitations](#sandbox-limitations)
+3. [API Limitations](#api-limitations)
 4. [API Issues](#api-issues)
 5. [Ansible Configuration Issues](#ansible-configuration-issues)
 6. [Python and Dependency Issues](#python-and-dependency-issues)
@@ -18,7 +18,7 @@ This guide covers common errors, their causes, and solutions. If you encounter a
 ### Symptoms
 
 ```
-fatal: [sandbox]: FAILED! => {
+fatal: [labnet]: FAILED! => {
     "msg": "Rate limit exceeded. Please wait before retrying."
 }
 ```
@@ -105,7 +105,7 @@ Look for headers:
 ### Symptoms
 
 ```
-fatal: [sandbox]: FAILED! => {
+fatal: [labnet]: FAILED! => {
     "msg": "Invalid API key"
 }
 ```
@@ -191,13 +191,13 @@ ansible-vault view vault/secrets.yml
 3. **Expired keys**: Some organizations rotate API keys periodically
 4. **Wrong file**: Editing `.env.example` instead of `.env`
 
-## Sandbox Limitations
+## API Limitations
 
 ### Symptoms
 
 ```
-fatal: [sandbox]: FAILED! => {
-    "msg": "Operation not permitted in sandbox environment"
+fatal: [labnet]: FAILED! => {
+    "msg": "Operation not permitted"
 }
 ```
 
@@ -205,7 +205,7 @@ Or operations complete but don't persist.
 
 ### Cause
 
-Test and sandbox environments may have restrictions:
+Meraki API environments may have the following restrictions depending on your API key permissions:
 - **Read-only operations** — Some write operations may be restricted depending on your API key permissions
 - **Rate limiting** — API calls are rate-limited (typically 5 requests per second per organization)
 - **Limited networks** — Your test org may have a limited set of networks and devices
@@ -220,7 +220,7 @@ For testing, focus on read operations:
 # Use _info modules (read-only)
 - name: Get SSID information
   cisco.meraki.networks_ssids_info:
-    # This should work in sandbox
+    # This should work in the target environment
 ```
 
 #### Solution 2: Verify API Connectivity
@@ -236,7 +236,7 @@ curl -X GET "https://api.meraki.com/api/v1/organizations/YOUR_ORG_ID/networks" \
 
 Ensure your API key has sufficient permissions for the operations you're running. Full org admin access is required for write operations.
 
-### Known Sandbox Limitations
+### Common API Restrictions
 
 - **SSID creation**: May be restricted
 - **Device provisioning**: Limited device types
@@ -250,7 +250,7 @@ Ensure your API key has sufficient permissions for the operations you're running
 ### Symptoms
 
 ```
-fatal: [sandbox]: FAILED! => {
+fatal: [labnet]: FAILED! => {
     "msg": "API endpoint not found"
 }
 ```
@@ -339,7 +339,7 @@ Check that your inventory file exists and is correctly formatted:
 
 ```bash
 # Check inventory syntax
-ansible-inventory --list -i inventory/sandbox.yml
+ansible-inventory --list -i inventory/production.yml
 ```
 
 **Common issues:**
@@ -384,7 +384,7 @@ Verify `ansible.cfg` settings:
 
 ```ini
 [defaults]
-inventory = inventory/sandbox.yml  # Correct path?
+inventory = inventory/production.yml  # Correct path?
 host_key_checking = False          # Should be False for API
 ```
 
@@ -457,7 +457,7 @@ ERROR! Syntax Error while loading YAML
 
 Or:
 ```
-fatal: [sandbox]: FAILED! => {"msg": "The task includes an option with an undefined variable"}
+fatal: [labnet]: FAILED! => {"msg": "The task includes an option with an undefined variable"}
 ```
 
 ### Solutions
@@ -480,7 +480,7 @@ Ensure all variables are defined:
 
 ```bash
 # List all variables for a host
-ansible-inventory --host sandbox -i inventory/sandbox.yml
+ansible-inventory --host labnet -i inventory/production.yml
 ```
 
 **Common issues:**
@@ -528,7 +528,7 @@ ansible-playbook -vvv playbooks/ssid_management.yml
 
 ```bash
 # Gather and display facts for a host
-ansible sandbox -i inventory/sandbox.yml -m setup
+ansible labnet -i inventory/production.yml -m setup
 ```
 
 ### Test Individual Tasks
@@ -602,7 +602,7 @@ If you've tried the solutions above and still have issues:
    - Playbook/role that failed
    - Ansible version (`ansible --version`)
    - Python version (`python --version`)
-   - Environment (sandbox vs production)
+   - Environment details
 4. **Check documentation**: Review [ARCHITECTURE.md](ARCHITECTURE.md) for understanding data flow
 
 ## Prevention Checklist
