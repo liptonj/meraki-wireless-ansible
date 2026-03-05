@@ -16,8 +16,6 @@
 
   roles:
     - role: meraki_ssid
-      vars:
-        meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
 
   post_tasks:
     - name: SSID deployment summary
