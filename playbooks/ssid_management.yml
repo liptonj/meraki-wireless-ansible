@@ -3,10 +3,8 @@
 # Deploys and configures wireless SSIDs across Meraki networks
 #
 # Usage:
-#   ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml
-#
-#   # Dry-run mode
-#   ansible-playbook playbooks/ssid_management.yml -i inventory/sandbox.yml --check --diff
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml --check --diff
 
 - name: Deploy Meraki SSIDs
   hosts: meraki_orgs

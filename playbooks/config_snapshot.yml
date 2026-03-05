@@ -3,10 +3,7 @@
 # Pulls live Meraki config and stores it in baselines/ for GitOps drift detection
 #
 # Usage:
-#   ansible-playbook playbooks/config_snapshot.yml -i inventory/sandbox_compliance.yml
-#
-# This playbook is designed to run in GitHub Actions after compliance checks.
-# The baselines/ directory is committed back to the repo automatically.
+#   ansible-playbook playbooks/config_snapshot.yml -i inventory/production_compliance.yml
 
 - name: Capture Meraki Configuration Baseline
   hosts: meraki_networks
