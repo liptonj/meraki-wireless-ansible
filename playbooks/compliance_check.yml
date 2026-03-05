@@ -3,11 +3,13 @@
 # Detects configuration drift and generates compliance reports
 #
 # Usage:
-#   ansible-playbook playbooks/compliance_check.yml
+#   ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml
 #   ansible-playbook playbooks/compliance_check.yml --check --diff
-#   ansible-playbook playbooks/compliance_check.yml --limit network1
 
-- name: Meraki Wireless Compliance Check
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Run Compliance Checks on Each Network
   hosts: meraki_networks
   gather_facts: true
 
@@ -179,6 +181,153 @@
       tags:
         - alerting
         - webex
+
+    - name: Build Webex card violation details
+      ansible.builtin.set_fact:
+        webex_card_violation_items: >-
+          [
+          {% for network in compliance_results.network_details | default([]) %}
+          {% if not network.compliant %}
+          {"type": "TextBlock", "text": "{{ network.network_name }}", "weight": "bolder", "size": "medium", "spacing": "medium"},
+          {% for ssid in network.ssids %}
+          {% if ssid.drift_detected %}
+          {"type": "TextBlock", "text": "SSID: {{ ssid.name }}", "weight": "bolder", "spacing": "small"},
+          {% for field, values in ssid.differences.items() %}
+          {"type": "ColumnSet", "spacing": "none", "columns": [
+            {"type": "Column", "width": "auto", "items": [{"type": "TextBlock", "text": "{{ field }}", "weight": "bolder", "size": "small"}]},
+            {"type": "Column", "width": "stretch", "items": [{"type": "TextBlock", "text": "{{ values.current }} → {{ values.desired }}", "size": "small", "color": "attention"}]}
+          ]},
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+          ]
+      when:
+        - compliance_results is defined
+        - compliance_failed | default(false) | bool
+      run_once: true
+      tags:
+        - alerting
+        - webex
+        - webex-bot
+
+    - name: Send Webex Bot adaptive card for compliance violation
+      ansible.builtin.uri:
+        url: "https://webexapis.com/v1/messages"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ compliance_webex_bot_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          toPersonEmail: "{{ compliance_webex_alert_email }}"
+          markdown: >-
+            **Wireless Compliance Violation** - {{ ansible_date_time.iso8601 }} -
+            {{ compliance_results.networks_non_compliant }} network(s) and
+            {{ compliance_results.ssids_non_compliant }} SSID(s) non-compliant.
+            Run `ansible-playbook playbooks/ssid_management.yml` to remediate.
+          attachments:
+            - contentType: "application/vnd.microsoft.card.adaptive"
+              content:
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
+                type: "AdaptiveCard"
+                version: "1.3"
+                body:
+                  - type: "ColumnSet"
+                    columns:
+                      - type: "Column"
+                        width: "auto"
+                        items:
+                          - type: "TextBlock"
+                            text: "⚠️"
+                            size: "large"
+                      - type: "Column"
+                        width: "stretch"
+                        verticalContentAlignment: "center"
+                        items:
+                          - type: "TextBlock"
+                            text: "Wireless Compliance Violation"
+                            weight: "bolder"
+                            size: "large"
+                            color: "attention"
+                  - type: "TextBlock"
+                    text: "{{ ansible_date_time.iso8601 }}"
+                    isSubtle: true
+                    spacing: "none"
+                  - type: "ColumnSet"
+                    separator: true
+                    spacing: "medium"
+                    columns:
+                      - type: "Column"
+                        width: "stretch"
+                        items:
+                          - type: "TextBlock"
+                            text: "Networks Checked"
+                            size: "small"
+                            isSubtle: true
+                          - type: "TextBlock"
+                            text: "{{ compliance_results.networks_checked | default(0) }}"
+                            weight: "bolder"
+                            size: "extraLarge"
+                            spacing: "none"
+                      - type: "Column"
+                        width: "stretch"
+                        items:
+                          - type: "TextBlock"
+                            text: "Non-Compliant"
+                            size: "small"
+                            isSubtle: true
+                          - type: "TextBlock"
+                            text: "{{ compliance_results.networks_non_compliant | default(0) }}"
+                            weight: "bolder"
+                            size: "extraLarge"
+                            color: "attention"
+                            spacing: "none"
+                      - type: "Column"
+                        width: "stretch"
+                        items:
+                          - type: "TextBlock"
+                            text: "SSIDs Drifted"
+                            size: "small"
+                            isSubtle: true
+                          - type: "TextBlock"
+                            text: "{{ compliance_results.ssids_non_compliant | default(0) }}"
+                            weight: "bolder"
+                            size: "extraLarge"
+                            color: "attention"
+                            spacing: "none"
+                  - type: "TextBlock"
+                    text: "Violation Details"
+                    weight: "bolder"
+                    separator: true
+                    spacing: "medium"
+                  - type: "Container"
+                    items: "{{ webex_card_violation_items }}"
+                  - type: "TextBlock"
+                    text: "Remediation"
+                    weight: "bolder"
+                    separator: true
+                    spacing: "medium"
+                  - type: "TextBlock"
+                    text: "`ansible-playbook playbooks/ssid_management.yml`"
+                    wrap: true
+                    fontType: "monospace"
+                    size: "small"
+        status_code: 200
+        validate_certs: true
+      delegate_to: localhost
+      run_once: true
+      no_log: true
+      when:
+        - compliance_failed | default(false) | bool
+        - compliance_webex_bot_enabled | default(false) | bool
+        - compliance_webex_bot_token | default('') | length > 0
+        - compliance_webex_alert_email | default('') | length > 0
+      tags:
+        - alerting
+        - webex
+        - webex-bot
 
     - name: Compliance check passed - no alerts needed
       ansible.builtin.debug:

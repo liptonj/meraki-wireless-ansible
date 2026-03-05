@@ -15,11 +15,13 @@ on:
     secrets:
       MERAKI_DASHBOARD_API_KEY:
         required: true
-      MERAKI_ORG_ID:
+      MERAKI_ORG_NAME:
         required: true
-      MERAKI_NETWORK_ID:
+      MERAKI_NETWORK_NAMES:
         required: true
-      WEBEX_WEBHOOK_URL:
+      WEBEX_BOT_TOKEN:
+        required: false
+      WEBEX_ALERT_EMAIL:
         required: false
 
   schedule:
@@ -76,34 +78,36 @@ jobs:
       - name: Run compliance check
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
+          MERAKI_ORG_NAME: ${{ secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ secrets.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK: ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST: ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET: ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WEBEX_WEBHOOK_URL: ${{ secrets.WEBEX_WEBHOOK_URL }}
+          WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
         run: |
           echo "Trigger: ${{ steps.trigger.outputs.source }}"
           echo ""
 
           ansible-playbook playbooks/compliance_check.yml \
-            -i inventory/production_compliance.yml \
-            -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
-            -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
-            -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
+            -i inventory/production.yml \
             -e "compliance_github_repo=${{ github.repository }}" \
-            -e "compliance_github_token=${GITHUB_TOKEN}" \
-            -e "compliance_webex_webhook_url=${WEBEX_WEBHOOK_URL}"
+            -e "compliance_github_token=${GITHUB_TOKEN}"
 
       - name: Snapshot current config to baselines
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
+          MERAKI_ORG_NAME: ${{ secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ secrets.MERAKI_NETWORK_NAMES }}
         run: |
           ansible-playbook playbooks/config_snapshot.yml \
-            -i inventory/production_compliance.yml \
-            -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
-            -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
-            -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}"
+            -i inventory/production.yml
 
       - name: Commit baseline changes to repo
         run: |

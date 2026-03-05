@@ -1,30 +1,27 @@
 ---
-# Development Inventory Template
+# Development Inventory (example)
+# Copy to development.yml and fill in your values.
 #
-# 1. Copy: cp inventory/development.yml.example inventory/development.yml
-# 2. Replace placeholder values with your development environment values
-# 3. Store sensitive values in vault/secrets.yml (encrypted)
-# 4. Do NOT commit development.yml to version control
+# Multi-network: set meraki_network_names as a list, or use
+# MERAKI_NETWORK_NAMES env var as a comma-separated string.
 
 all:
   children:
     meraki_orgs:
       hosts:
-        dev_org:
-          meraki_org_id: "{{ vault_meraki_org_id_dev }}"
-          meraki_api_key: "{{ vault_meraki_api_key_dev }}"
+        devnet:
+          meraki_org_name: "YOUR_DEV_ORG_NAME"
+          meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default('', true) }}"
           meraki_base_url: "https://api.meraki.com/api/v1"
           meraki_environment: development
-          meraki_network_ids:
-            - "{{ vault_meraki_network_id_dev_1 }}"
+          meraki_network_names:
+            - "YOUR_DEV_NETWORK_1"
+            - "YOUR_DEV_NETWORK_2"
 
       vars:
+        ansible_connection: local
+        ansible_python_interpreter: auto_silent
         meraki_api_timeout: 60
-        meraki_api_retries: 5
-        meraki_api_retry_delay: 3
-        meraki_rate_limit: 3
-
-localhost:
-  ansible_connection: local
-  ansible_host: localhost
-  ansible_python_interpreter: auto_silent
+        meraki_api_retries: 3
+        meraki_api_retry_delay: 2
+        meraki_rate_limit: 4

@@ -1,10 +1,23 @@
 ---
-# Compliance Desired State — applies to hosts in the `meraki_networks` inventory group
-# (used by compliance_check.yml and config_snapshot.yml). Any deviation is flagged as drift.
+# Compliance Desired State — used by compliance_check.yml.
+# Any deviation from these values is flagged as drift.
+#
+# network_name must match the Meraki network name exactly.
+# Networks not listed here will have no desired config to compare against.
 
 meraki_desired_ssids:
-  - network_name: "lab_site1"
-    network_id: "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID', true)) }}"
+  - network_name: "Site-A"
+    ssids:
+      - name: "Corp-Secure"
+        enabled: true
+        authMode: "psk"
+        encryptionMode: "wpa2"
+        visible: true
+        broadcast: true
+        minBitrate: 11
+        bandSelection: "Dual band operation"
+
+  - network_name: "Site-B"
     ssids:
       - name: "Corp-Secure"
         enabled: true

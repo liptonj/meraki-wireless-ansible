@@ -13,7 +13,8 @@ Automate Cisco Meraki wireless network management with Ansible playbooks. This p
 - **Python 3.12+** (required for Ansible 2.20.2)
 - **Git** for cloning the repository
 - **Meraki API Key** (get one from [Meraki Dashboard](https://dashboard.meraki.com/) — see [Getting Started](docs/GETTING_STARTED.md) for details)
-- **Meraki Organization ID** (found in your Meraki Dashboard URL or API)
+- **Meraki Organization Name** (the name of your org in Meraki Dashboard)
+- **Meraki Network Name(s)** (the name(s) of the networks you want to manage)
 
 ### 1. Fork and Clone
 
@@ -35,7 +36,8 @@ source venv/bin/activate
 cp .env.example .env
 # Edit .env and add your credentials:
 # MERAKI_DASHBOARD_API_KEY=your_api_key_here
-# MERAKI_ORG_ID=your_org_id_here
+# MERAKI_ORG_NAME=your_organization_name_here
+# MERAKI_NETWORK_NAMES=Site-A,Site-B,Site-C
 ```
 
 ### 4. Run Your First Playbook
@@ -63,6 +65,8 @@ ansible-playbook playbooks/ssid_management.yml
 
 ### Key Features
 
+- **Name-Based Discovery** - Reference orgs and networks by name, not IDs
+- **Multi-Network Support** - Manage multiple networks in a single playbook run
 - **GitOps for Wireless** - Config stored in Git, drift detected automatically
 - **Security Baselines** - No open auth, WPA2 minimum, guest bandwidth limits
 - **Automated Alerting** - GitHub Issues + Webex Teams on compliance violations
@@ -93,12 +97,12 @@ meraki-wireless-ansible/
 │   ├── compliance_check.yml
 │   └── config_snapshot.yml
 ├── roles/              # Reusable Ansible roles
+│   ├── meraki_discovery/
 │   ├── meraki_ssid/
 │   ├── meraki_compliance/
 │   └── meraki_snapshot/
 ├── inventory/          # Host and group definitions
-│   ├── production.yml
-│   └── production_compliance.yml
+│   └── production.yml
 ├── group_vars/         # Environment-specific variables
 │   ├── all.yml
 │   ├── meraki_orgs.yml
@@ -115,6 +119,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed explanation.
 ## Security Best Practices
 
 - **Never commit API keys** - Use `.env` files (gitignored) or Ansible Vault
+- **Use names, not IDs** - Org and network names are resolved at runtime
 - **Use environment variables** - Load secrets from `.env` files
 - **Encrypt sensitive data** - Use `ansible-vault encrypt` for production secrets
 - **Review before running** - Always check playbooks before executing

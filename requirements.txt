@@ -2,9 +2,10 @@
 # Install with: pip install -r requirements.txt
 
 ansible-core==2.20.2
-ansible-lint>=25.0.0
+ansible-lint==26.3.0
 meraki==2.0.3
 python-dotenv==1.0.1
 pyyaml==6.0.2
 jinja2==3.1.6
-detect-secrets>=1.4.0
+detect-secrets==1.5.0
+ruamel.yaml>=0.18.0

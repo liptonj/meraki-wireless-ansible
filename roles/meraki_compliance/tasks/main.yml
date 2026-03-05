@@ -34,7 +34,6 @@
     desired_config: >-
       {{ meraki_desired_ssids
          | selectattr('network_name', 'equalto', inventory_hostname)
-         | selectattr('network_id', 'equalto', current_network_id)
          | first
          | default({}) }}
   when:

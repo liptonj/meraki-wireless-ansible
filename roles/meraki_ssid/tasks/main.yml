@@ -3,12 +3,11 @@
   ansible.builtin.assert:
     that:
       - meraki_api_key | length > 0
-      - meraki_org_id | length > 0
-      - meraki_network_id | length > 0
+      - meraki_network_id is defined and meraki_network_id | length > 0
       - meraki_ssid_configs | length > 0
     fail_msg: >-
-      Missing required variables. Ensure MERAKI_DASHBOARD_API_KEY,
-      meraki_org_id, meraki_network_id, and meraki_ssid_configs are set.
+      Missing required variables: meraki_api_key, meraki_network_id,
+      and meraki_ssid_configs must all be set.
     quiet: true
   tags:
     - ssid

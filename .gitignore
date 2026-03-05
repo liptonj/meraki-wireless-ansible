@@ -45,7 +45,8 @@ fact_cache/
 *~
 
 # IDE
-.vscode/
+# VSCode — ignore personal settings but share project defaults
+.vscode/*
 .idea/
 .DS_Store
 
@@ -57,6 +58,7 @@ secrets.yml
 !secrets.yml.example
 vault_pass.txt
 .vault_pass
+.envrc
 
 # Logs
 *.log

@@ -61,7 +61,6 @@ meraki-wireless-ansible/
 │
 ├── inventory/                 # Host and group definitions
 │   ├── production.yml         # Production inventory (meraki_orgs)
-│   ├── production_compliance.yml # Compliance inventory (meraki_networks)
 │   └── development.yml.example # Development inventory template
 │
 ├── group_vars/                # Group-specific variables

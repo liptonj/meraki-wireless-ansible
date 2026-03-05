@@ -1,7 +1,5 @@
 ---
 meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
-meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('', true)) }}"
-meraki_network_id: "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('', true)) }}"
 
 meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
 

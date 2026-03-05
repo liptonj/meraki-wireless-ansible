@@ -6,25 +6,13 @@
 #   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml
 #   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml --check --diff
 
-- name: Deploy Meraki SSIDs
-  hosts: meraki_orgs
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Deploy SSIDs to Each Network
+  hosts: meraki_networks
   gather_facts: false
   become: false
-
-  pre_tasks:
-    - name: Load API key from environment
-      ansible.builtin.set_fact:
-        meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
-      no_log: true
-      tags: always
-
-    - name: Verify API key is available
-      ansible.builtin.assert:
-        that:
-          - meraki_api_key | length > 0
-        fail_msg: "MERAKI_DASHBOARD_API_KEY environment variable or vault_meraki_api_key must be set"
-        quiet: true
-      tags: always
 
   roles:
     - role: meraki_ssid
@@ -36,6 +24,7 @@
       ansible.builtin.debug:
         msg: |
           SSID deployment complete!
-          Network: {{ meraki_network_id | default('N/A') }}
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
           SSIDs configured: {{ meraki_ssids | default([]) | length }}
       tags: always

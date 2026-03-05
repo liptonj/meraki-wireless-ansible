@@ -18,8 +18,6 @@ compliance_check_fields:
   - bandSelection
 
 meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
-meraki_org_id: "{{ meraki_org_id | default(omit) }}"
-meraki_network_id: "{{ meraki_network_id | default(omit) }}"
 
 # Alerting configuration
 compliance_alerting_enabled: true
@@ -30,6 +28,11 @@ compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }
 
 compliance_webex_alert_enabled: true
 compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
+
+compliance_webex_bot_enabled: true
+compliance_webex_bot_token: "{{ lookup('env', 'WEBEX_BOT_TOKEN') | default(vault_webex_bot_token | default(''), true) }}"
+compliance_webex_alert_email: "{{ lookup('env', 'WEBEX_ALERT_EMAIL') | default(vault_webex_alert_email | default(''), true) }}"
+compliance_webex_webhook_secret: "{{ lookup('env', 'WEBEX_WEBHOOK_SECRET') | default(vault_webex_webhook_secret | default(''), true) }}"
 
 # Security baseline checks
 security_baseline_enabled: true
