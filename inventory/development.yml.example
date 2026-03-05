@@ -1,0 +1,30 @@
+---
+# Development Inventory Template
+#
+# 1. Copy: cp inventory/development.yml.example inventory/development.yml
+# 2. Replace placeholder values with your development environment values
+# 3. Store sensitive values in vault/secrets.yml (encrypted)
+# 4. Do NOT commit development.yml to version control
+
+all:
+  children:
+    meraki_orgs:
+      hosts:
+        dev_org:
+          meraki_org_id: "{{ vault_meraki_org_id_dev }}"
+          meraki_api_key: "{{ vault_meraki_api_key_dev }}"
+          meraki_base_url: "https://api.meraki.com/api/v1"
+          meraki_environment: development
+          meraki_network_ids:
+            - "{{ vault_meraki_network_id_dev_1 }}"
+
+      vars:
+        meraki_api_timeout: 60
+        meraki_api_retries: 5
+        meraki_api_retry_delay: 3
+        meraki_rate_limit: 3
+
+localhost:
+  ansible_connection: local
+  ansible_host: localhost
+  ansible_python_interpreter: auto_silent

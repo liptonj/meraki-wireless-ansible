@@ -1,29 +1,26 @@
 ---
 # Compliance Check Inventory
-# Maps individual Meraki networks as Ansible hosts for per-network compliance checks
-#
-# Usage:
-#   ansible-playbook playbooks/compliance_check.yml -i inventory/sandbox_compliance.yml
+# Maps individual Meraki networks as hosts for per-network compliance checks
 
 all:
   children:
     meraki_networks:
       hosts:
-        sandbox_network:
+        lab_site1:
           meraki_network_id: "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID', true)) }}"
           meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
           meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
           meraki_base_url: "https://api.meraki.com/api/v1"
-          environment: sandbox
+          meraki_environment: production
           ansible_connection: local
           ansible_python_interpreter: auto_silent
 
     meraki_orgs:
       hosts:
-        meraki_sandbox:
+        labnet:
           meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
           meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
           meraki_base_url: "https://api.meraki.com/api/v1"
-          environment: sandbox
+          meraki_environment: production
           meraki_network_ids:
             - "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID', true)) }}"

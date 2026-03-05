@@ -1,0 +1,26 @@
+---
+# Meraki Production Inventory
+# Control node: localhost (connects to Meraki API, no SSH)
+
+all:
+  children:
+    meraki_orgs:
+      hosts:
+        labnet:
+          meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
+          meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+          meraki_base_url: "https://api.meraki.com/api/v1"
+          meraki_environment: production
+          meraki_network_ids:
+            - "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID_1', true)) }}"
+
+      vars:
+        meraki_api_timeout: 60
+        meraki_api_retries: 3
+        meraki_api_retry_delay: 2
+        meraki_rate_limit: 4
+
+localhost:
+  ansible_connection: local
+  ansible_host: localhost
+  ansible_python_interpreter: auto_silent
