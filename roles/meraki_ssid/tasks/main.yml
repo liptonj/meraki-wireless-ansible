@@ -62,10 +62,10 @@
         or item.encryptionMode | default('open') == 'open'
       - >-
         item.perClientBandwidthLimitUp is not defined
-        or item.perClientBandwidthLimitUp | string | regex_search('^[0-9]+$')
+        or (item.perClientBandwidthLimitUp | string is match('^[0-9]+$'))
       - >-
         item.perClientBandwidthLimitDown is not defined
-        or item.perClientBandwidthLimitDown | string | regex_search('^[0-9]+$')
+        or (item.perClientBandwidthLimitDown | string is match('^[0-9]+$'))
     fail_msg: >-
       SSID "{{ item.name }}" has invalid config:
       authMode={{ item.authMode | default('psk') }}
