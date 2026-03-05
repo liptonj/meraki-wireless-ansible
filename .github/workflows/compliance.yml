@@ -86,7 +86,7 @@ jobs:
           echo ""
 
           ansible-playbook playbooks/compliance_check.yml \
-            -i inventory/sandbox_compliance.yml \
+            -i inventory/production_compliance.yml \
             -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
             -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
             -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
@@ -101,7 +101,7 @@ jobs:
           MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
         run: |
           ansible-playbook playbooks/config_snapshot.yml \
-            -i inventory/sandbox_compliance.yml \
+            -i inventory/production_compliance.yml \
             -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
             -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
             -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}"

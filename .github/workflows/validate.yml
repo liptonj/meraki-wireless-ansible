@@ -1,27 +1,12 @@
-# GitHub Actions CI/CD Pipeline for Meraki Wireless Ansible
-#
-# This workflow validates Ansible playbooks through multiple stages:
-# 1. Lint - Checks code quality and best practices with ansible-lint
-# 2. Syntax Check - Validates YAML syntax and Ansible playbook structure
-# 3. Dry Run - Performs non-destructive check mode execution against DevNet sandbox
-# 4. Security Scan - Detects secrets and sensitive data in the codebase
-#
-# Runs on: Pull requests and pushes to main branch
-
 name: Validate Ansible
 
 on:
   pull_request:
-    # Run on all pull requests
   push:
     branches:
       - main
-    # Also run on pushes to main branch
 
 jobs:
-  # Stage 1: Lint - Code Quality and Best Practices
-  # Uses ansible-lint to check for common mistakes, deprecated features,
-  # and adherence to Ansible best practices
   lint:
     name: Lint Playbooks and Roles
     runs-on: ubuntu-latest
@@ -53,27 +38,13 @@ jobs:
           ansible-galaxy collection install -r requirements.yml
 
       - name: Run ansible-lint
-        uses: ansible/ansible-lint-action@v6
-        with:
-          # Lint all playbooks and roles
-          targets: |
-            playbooks/
-            roles/
-          # Use project's .ansible-lint configuration
-          options: |
-            --config-file=.ansible-lint
-          # Generate output in multiple formats for better visibility
-          output-format: |
-            standard
-            github
+        run: |
+          ansible-lint --config-file=.ansible-lint -f github playbooks/ roles/
 
-  # Stage 2: Syntax Check - YAML and Playbook Structure Validation
-  # Validates that all playbooks have correct YAML syntax and
-  # can be parsed by Ansible without errors
   syntax-check:
     name: Syntax Check Playbooks
     runs-on: ubuntu-latest
-    needs: lint  # Run after lint passes
+    needs: lint
 
     steps:
       - name: Checkout repository
@@ -103,30 +74,21 @@ jobs:
 
       - name: Syntax check all playbooks
         run: |
-          echo "🔍 Running syntax check on all playbooks..."
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
               echo "Checking: $playbook"
               ansible-playbook --syntax-check "$playbook" || exit 1
             fi
           done
-          echo "✅ All playbooks passed syntax check"
 
-  # Stage 3: Dry Run - Non-destructive Check Mode Execution
-  # Runs playbooks in check mode (--check) against the DevNet sandbox
-  # This validates that playbooks would execute correctly without making changes
-  # Uses MERAKI_DASHBOARD_API_KEY secret for authentication
-  # Note: This job will be skipped if MERAKI_DASHBOARD_API_KEY is not available (e.g., in forks)
   dry-run:
-    name: Dry Run Against DevNet Sandbox
+    name: Dry Run Validation
     runs-on: ubuntu-latest
-    needs: syntax-check  # Run after syntax check passes
+    needs: syntax-check
 
-    # Only run if we have the required secret
-    # Skip gracefully if secret is not available (e.g., in forks)
-    if: |
+    if: >-
       (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') &&
-      secrets.MERAKI_DASHBOARD_API_KEY != ''
+      github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout repository
@@ -154,38 +116,20 @@ jobs:
         run: |
           ansible-galaxy collection install -r requirements.yml
 
-      - name: Configure Meraki API credentials
-        # Set up environment variables for Ansible vault variables
-        # The sandbox inventory uses vault variables that we'll provide via env vars
-        env:
-          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-        run: |
-          # Create a temporary vault file or use environment variables
-          # For simplicity, we'll pass these as extra vars
-          echo "✅ Meraki API credentials configured"
-
       - name: Dry run playbooks (check mode)
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
           MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
           MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
         run: |
-          echo "🧪 Running dry-run (check mode) against Meraki API..."
-          echo "This validates playbook execution without making actual changes"
-
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
-              echo ""
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              echo "📋 Testing: $(basename $playbook)"
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "Testing: $(basename $playbook)"
 
-              # Compliance and snapshot playbooks target meraki_networks group
               if [[ "$playbook" == *"compliance"* ]] || [[ "$playbook" == *"snapshot"* ]]; then
-                INVENTORY="inventory/sandbox_compliance.yml"
+                INVENTORY="inventory/production_compliance.yml"
               else
-                INVENTORY="inventory/sandbox.yml"
+                INVENTORY="inventory/production.yml"
               fi
 
               ansible-playbook \
@@ -196,18 +140,12 @@ jobs:
                 -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
                 -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
                 "$playbook" || {
-                  echo "❌ Dry-run failed for $(basename $playbook)"
+                  echo "Dry-run failed for $(basename $playbook)"
                   exit 1
                 }
             fi
           done
 
-          echo ""
-          echo "✅ All playbooks passed dry-run validation"
-
-  # Stage 4: Security Scan - Detect Secrets and Sensitive Data
-  # Scans the codebase for accidentally committed secrets, API keys,
-  # passwords, and other sensitive information
   security-scan:
     name: Security Scan for Secrets
     runs-on: ubuntu-latest
@@ -216,7 +154,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Fetch full history for better secret detection
           fetch-depth: 0
 
       - name: Set up Python
@@ -231,31 +168,23 @@ jobs:
 
       - name: Scan for secrets
         run: |
-          echo "🔒 Scanning codebase for secrets and sensitive data..."
-          echo ""
-
-          # Check if baseline exists, create if not
           if [ ! -f .secrets.baseline ]; then
-            echo "Creating initial secrets baseline..."
             detect-secrets scan \
               --exclude-files '\.lock$|\.log$|\.cache$|\.git/|\.github/' \
               --exclude-lines 'password.*=.*example|api.*key.*=.*example|#.*test|#.*example|MERAKI.*=.*your|vault_.*:.*"{{' \
               . > .secrets.baseline || true
           fi
 
-          # Run scan and compare with baseline
           detect-secrets scan \
             --exclude-files '\.lock$|\.log$|\.cache$|\.git/|\.github/' \
             --exclude-lines 'password.*=.*example|api.*key.*=.*example|#.*test|#.*example|MERAKI.*=.*your|vault_.*:.*"{{' \
             --baseline .secrets.baseline \
             . || {
-              echo "❌ New secrets detected or baseline changed!"
+              echo "New secrets detected or baseline changed!"
               echo "Review the findings above and ensure no real secrets are committed."
               echo "If these are false positives, update .secrets.baseline"
               exit 1
           }
-
-          echo "✅ No new secrets detected in codebase"
 
       - name: Upload secrets baseline
         if: always()
@@ -265,59 +194,48 @@ jobs:
           path: .secrets.baseline
           retention-days: 30
 
-  # Summary job that runs all validation stages
-  # This provides a single point to check overall pipeline status
   validate:
     name: Validation Summary
     runs-on: ubuntu-latest
     needs: [lint, syntax-check, dry-run, security-scan]
-
-    # Run regardless of previous job outcomes to provide summary
     if: always()
 
     steps:
       - name: Check validation status
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 Validation Pipeline Summary"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Validation Pipeline Summary"
           echo ""
-          echo "✅ Lint: ${{ needs.lint.result }}"
-          echo "✅ Syntax Check: ${{ needs.syntax-check.result }}"
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Syntax Check: ${{ needs.syntax-check.result }}"
 
-          # Dry-run may be skipped if secrets are not available
           if [ "${{ needs.dry-run.result }}" == "skipped" ]; then
-            echo "⏭️  Dry Run: skipped (secrets not available)"
+            echo "Dry Run: skipped (secrets not available)"
           else
-            echo "✅ Dry Run: ${{ needs.dry-run.result }}"
+            echo "Dry Run: ${{ needs.dry-run.result }}"
           fi
 
-          echo "✅ Security Scan: ${{ needs.security-scan.result }}"
+          echo "Security Scan: ${{ needs.security-scan.result }}"
           echo ""
 
-          # Check if any required jobs failed
           FAILED=0
           if [ "${{ needs.lint.result }}" != "success" ]; then
-            echo "❌ Lint job failed"
+            echo "Lint job failed"
             FAILED=1
           fi
           if [ "${{ needs.syntax-check.result }}" != "success" ]; then
-            echo "❌ Syntax check job failed"
+            echo "Syntax check job failed"
             FAILED=1
           fi
           if [ "${{ needs.dry-run.result }}" != "success" ] && [ "${{ needs.dry-run.result }}" != "skipped" ]; then
-            echo "❌ Dry run job failed"
+            echo "Dry run job failed"
             FAILED=1
           fi
           if [ "${{ needs.security-scan.result }}" != "success" ]; then
-            echo "❌ Security scan job failed"
+            echo "Security scan job failed"
             FAILED=1
           fi
 
           if [ $FAILED -eq 1 ]; then
-            echo ""
-            echo "❌ Validation pipeline failed. Please review the errors above."
+            echo "Validation pipeline failed. Please review the errors above."
             exit 1
-          else
-            echo "✅ All validation stages passed!"
           fi
