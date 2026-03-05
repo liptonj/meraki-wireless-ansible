@@ -1,60 +1,28 @@
 ---
 # SSID Deployment Config — applies to hosts in the `meraki_orgs` inventory group
-# (used by ssid_management.yml). Defines what SSIDs to deploy and environment-specific
-# settings for the sandbox.
+# (used by ssid_management.yml). Defines what SSIDs to deploy and operational settings.
 
-# ============================================================================
-# Environment Identification
-# ============================================================================
+meraki_environment: production
 
-environment: sandbox
-environment_type: "test"
-
-# ============================================================================
-# Sandbox-Specific API Configuration
-# ============================================================================
-
-# Longer timeout for test environments
+# API Configuration
 meraki_api_timeout: 60
-
-# More retries for test environments
 meraki_api_retries: 5
 meraki_api_retry_delay: 3
-
-# Conservative rate limiting for testing
 meraki_rate_limit: 3
 
-# ============================================================================
-# Sandbox Organization and Network IDs
-# ============================================================================
+# Organization and Network IDs
+meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
 
-# NOTE: These are placeholders! You must:
-# 1. Get your API key from: Meraki Dashboard > My Profile > API access
-# 2. Query organizations: GET /organizations
-# 3. Query networks: GET /organizations/{orgId}/networks
-# 4. Store actual values in vault/secrets.yml
-
-# Your Meraki Organization ID (populated from vault/secrets.yml)
-meraki_org_id: "{{ vault_meraki_org_id | default('YOUR_ORG_ID') }}"
-
-# Your Meraki Network IDs (query via API and store in vault/secrets.yml)
 meraki_network_ids:
-  - "{{ vault_meraki_network_id_1 | default('YOUR_NETWORK_ID_1') }}"
-  # Add additional networks as needed
+  - "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID_1', true)) }}"
 
-# ============================================================================
-# Sandbox-Specific SSID Configuration
-# ============================================================================
-
-# Override SSIDs for sandbox testing
-# Use simpler configurations for sandbox (no production RADIUS servers)
+# SSID Configuration
 meraki_ssids:
-  # Simple PSK SSID for sandbox testing
-  - name: "Sandbox-Test"
+  - name: "Corp-Secure"
     enabled: true
     authMode: "psk"
     encryptionMode: "wpa2"
-    psk: "{{ vault_sandbox_test_psk | default('TestPassword123!') }}"
+    psk: "{{ vault_corp_secure_psk }}"
     minBitrate: 11
     bandSelection: "Dual band operation"
     perClientBandwidthLimitUp: 0
@@ -62,9 +30,8 @@ meraki_ssids:
     visible: true
     availableOnAllAps: true
 
-  # Example: Open SSID for quick testing (disable in production!)
-  - name: "Sandbox-Open"
-    enabled: false  # Disabled by default for security
+  - name: "Corp-Guest"
+    enabled: false
     authMode: "open"
     encryptionMode: "wpa"
     minBitrate: 11
@@ -72,59 +39,20 @@ meraki_ssids:
     visible: true
     availableOnAllAps: true
 
-# ============================================================================
-# Sandbox-Specific AP Configuration
-# ============================================================================
+# AP Configuration
+meraki_ap_name_pattern: "{site}-{network_name}-AP-{serial[-6:]}"
 
-# AP naming for sandbox
-meraki_ap_name_pattern: "SANDBOX-{network_name}-AP-{serial[-6:]}"
-
-# Sandbox-specific AP tags
 meraki_ap_tags:
   - "managed-by-ansible"
-  - "sandbox"
-  - "devnet"
 
-# ============================================================================
-# Sandbox Operational Settings
-# ============================================================================
-
-# Enable dry-run by default in sandbox (safer for shared environment)
-meraki_dry_run: false  # Set to true to test without making changes
-
-# Enable validation
+# Operational Settings
+meraki_dry_run: false
 meraki_validate_changes: true
-
-# More verbose logging for sandbox testing
 meraki_log_changes: true
-meraki_change_log_path: "./logs/sandbox_changes_{{ ansible_date_time.epoch }}.json"
+meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.json"
 
-# ============================================================================
-# Sandbox Compliance Rules
-# ============================================================================
-
-# Relaxed compliance rules for sandbox (testing environment)
+# Compliance Rules
 meraki_compliance_rules:
   - name: "encryption_standard"
     check: "all_ssids_use_wpa2_or_wpa3"
-    severity: "warning"  # Warning instead of error in sandbox
-
-  # Disable strict PSK checks in sandbox
-  # - name: "psk_strength"
-  #   check: "psk_min_length_8"
-  #   severity: "warning"
-
-# ============================================================================
-# Sandbox Testing Configuration
-# ============================================================================
-
-# Enable test mode features
-meraki_test_mode: true
-
-# Allow less secure configurations in sandbox (for testing)
-meraki_allow_insecure_configs: true  # Only for sandbox!
-
-# Skip certain validations in sandbox
-meraki_skip_validations:
-  - "psk_strength"
-  - "radius_server_reachability"
+    severity: "error"

@@ -1,110 +1,49 @@
 ---
 # Global Defaults — applies to every host in every inventory.
-# Contains API settings, compliance rule templates, operational settings, and Ansible connection config.
 # SSID definitions belong in group-specific files (meraki_orgs.yml for deployment, meraki_networks.yml for compliance).
-# Environment-specific overrides go in group-specific files (e.g., group_vars/meraki_orgs.yml).
 
-# ============================================================================
 # Meraki API Configuration
-# ============================================================================
-
-# Base URL for Meraki Dashboard API
-# Use v1 API for maximum compatibility
 meraki_base_url: "https://api.meraki.com/api/v1"
-
-# API request timeout in seconds
-# Increase for slow networks or large operations
 meraki_api_timeout: 30
-
-# Number of retries for failed API requests
 meraki_api_retries: 3
-
-# Delay between retries (seconds)
 meraki_api_retry_delay: 2
-
-# Rate limiting: Maximum requests per second
 # Meraki API limit: ~5 requests/second per API key
-# Set conservatively to avoid hitting limits
 meraki_rate_limit: 4
 
-# ============================================================================
 # Access Point (AP) Configuration
-# ============================================================================
+meraki_ap_name_pattern: "{network_name}-AP-{serial[-6:]}"
 
-# AP naming pattern
-# Use Jinja2 templates for dynamic naming
-# Available variables: {serial}, {model}, {network_name}, {location}
-meraki_ap_name_pattern: "{network_name}-AP-{serial[-6:]}"  # Last 6 chars of serial
-
-# AP tag patterns for organization
-# Tags help group APs for configuration management
 meraki_ap_tags:
   - "managed-by-ansible"
-  # Add environment-specific tags in group-specific files (e.g., group_vars/meraki_orgs.yml)
 
-# Default AP configuration
 meraki_ap_config:
-  # Enable LED status lights
   ledLightsOn: true
-
-  # Enable uplink connectivity monitoring
   uplinkClientSampling:
     enabled: true
-    url: ""  # Optional: webhook URL for monitoring
+    url: ""
 
-# ============================================================================
 # Compliance and Validation Settings
-# ============================================================================
-
-# Enable compliance checking
-# When true, playbooks will validate configurations before applying
 meraki_compliance_check_enabled: true
 
-# Compliance rules: Define expected configurations
 meraki_compliance_rules:
-  # Require WPA2 or WPA3 encryption (no WPA-only)
   - name: "encryption_standard"
     check: "all_ssids_use_wpa2_or_wpa3"
-    severity: "error"  # Options: error, warning
+    severity: "error"
 
-  # Require strong PSK (if using PSK auth)
   - name: "psk_strength"
     check: "psk_min_length_8"
     severity: "warning"
 
-  # Require bandwidth limits on guest networks
   - name: "guest_bandwidth_limits"
     check: "guest_ssids_have_bandwidth_limits"
     severity: "warning"
 
-# ============================================================================
 # Operational Settings
-# ============================================================================
-
-# Dry-run mode: When true, show changes without applying them
-# Useful for testing and validation
 meraki_dry_run: false
-
-# Enable change validation before applying
-# When true, compare current vs desired state before making changes
 meraki_validate_changes: true
-
-# Logging and reporting
 meraki_log_changes: true
 meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.json"
 
-# ============================================================================
 # Ansible Configuration
-# ============================================================================
-
-# Python interpreter
 ansible_python_interpreter: auto_silent
-
-# Connection settings (we use local connection for API calls)
 ansible_connection: local
-
-# Fact gathering (disabled for API-based inventory)
-gather_facts: false
-
-# Host key checking (not applicable for API, but set for safety)
-host_key_checking: false
