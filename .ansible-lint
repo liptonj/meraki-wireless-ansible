@@ -1,7 +1,4 @@
 ---
-# Ansible Lint Configuration
-# See: https://ansible-lint.readthedocs.io/configuring/
-
 skip_list:
   - yaml[line-length]
   - name[casing]

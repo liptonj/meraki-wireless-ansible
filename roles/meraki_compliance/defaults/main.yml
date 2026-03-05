@@ -1,37 +1,12 @@
 ---
-# Default variables for Meraki Compliance Role
-# These define the structure for desired SSID configurations
 # Override in group_vars/all.yml or group_vars/meraki_networks.yml
 
-# Desired SSID configurations per network
-# Structure:
-# meraki_desired_ssids:
-#   - network_name: "Network1"
-#     network_id: "N_1234567890"
-#     ssids:
-#       - name: "Corporate"
-#         enabled: true
-#         authMode: "8021x"
-#         encryptionMode: "wpa2-eap"
-#         visible: true
-#         broadcast: true
-#         minBitrate: 11
-#         bandSelection: "Dual band operation"
-#       - name: "Guest"
-#         enabled: true
-#         authMode: "open"
-#         encryptionMode: "wpa"
-#         visible: true
-#         broadcast: true
 meraki_desired_ssids: []
 
-# Compliance check settings
 compliance_check_enabled: true
-compliance_strict_mode: false  # If true, any deviation fails compliance
+compliance_strict_mode: false
 compliance_report_dir: "{{ playbook_dir | default('.') }}/../reports"
 
-# Fields to check for compliance (subset of all SSID fields)
-# Set to empty list [] to check all fields
 compliance_check_fields:
   - name
   - enabled
@@ -42,7 +17,6 @@ compliance_check_fields:
   - minBitrate
   - bandSelection
 
-# Meraki API Configuration (inherited from group_vars or environment)
 meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
 meraki_org_id: "{{ meraki_org_id | default(omit) }}"
 meraki_network_id: "{{ meraki_network_id | default(omit) }}"
@@ -50,16 +24,14 @@ meraki_network_id: "{{ meraki_network_id | default(omit) }}"
 # Alerting configuration
 compliance_alerting_enabled: true
 
-# GitHub Issue alerting
 compliance_github_alert_enabled: true
 compliance_github_repo: ""
 compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
 
-# Webex Teams alerting
 compliance_webex_alert_enabled: true
 compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
 
-# Security baseline checks (applied to all enabled SSIDs)
+# Security baseline checks
 security_baseline_enabled: true
 
 security_baseline_rules:

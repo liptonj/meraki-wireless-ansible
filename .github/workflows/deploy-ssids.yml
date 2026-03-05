@@ -6,10 +6,9 @@ on:
       environment:
         description: 'Target environment'
         required: true
-        default: 'sandbox'
+        default: 'production'
         type: choice
         options:
-          - sandbox
           - production
       dry_run:
         description: 'Dry run (check mode only)'

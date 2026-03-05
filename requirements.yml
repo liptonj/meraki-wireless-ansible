@@ -1,21 +1,7 @@
-# Ansible Collections Requirements
-# Pinned versions for reproducibility (February 2026)
-# Install with: ansible-galaxy collection install -r requirements.yml
-#
-# Collections extend Ansible's capabilities with vendor-specific modules
-# The cisco.meraki collection provides modules for managing Cisco Meraki devices
-
 ---
 collections:
-  # Cisco Meraki Collection - Official Ansible modules for Meraki Dashboard API
-  # Version 2.22.0 released February 2026
-  # Requires: ansible-core >= 2.15.0, meraki Python SDK >= 1.33.0
-  # Documentation: https://docs.ansible.com/ansible/latest/collections/cisco/meraki/
   - name: cisco.meraki
     version: "2.22.0"
 
-  # Community General Collection - Additional useful modules
-  # Provides utilities like file operations, system info, etc.
-  # Version 9.0.0 released January 2026
   - name: community.general
     version: "9.0.0"
