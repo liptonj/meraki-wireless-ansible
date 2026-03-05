@@ -34,8 +34,6 @@
         meraki_org_id: "{{ meraki_org_id }}"
         meraki_org_name: "{{ meraki_org_name }}"
         meraki_api_key: "{{ meraki_api_key }}"
-        meraki_ssids: "{{ meraki_ssids | default([]) }}"
-        meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
         meraki_environment: "{{ meraki_environment | default('production') }}"
         ansible_connection: local
         ansible_python_interpreter: auto_silent
