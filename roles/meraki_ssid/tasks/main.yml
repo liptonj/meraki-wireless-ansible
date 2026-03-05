@@ -106,19 +106,10 @@
            else 'WPA2 only'
          ) }}
     psk: "{{ item.config.psk | default(omit) }}"
-    minBitrate: >-
-      {{ item.config.minBitrate | float
-         if item.config.minBitrate is defined
-         else omit }}
+    minBitrate: "{{ item.config.minBitrate | float if item.config.minBitrate is defined else omit }}"
     bandSelection: "{{ item.config.bandSelection | default(omit) }}"
-    perClientBandwidthLimitUp: >-
-      {{ item.config.perClientBandwidthLimitUp | int
-         if item.config.perClientBandwidthLimitUp is defined
-         else omit }}
-    perClientBandwidthLimitDown: >-
-      {{ item.config.perClientBandwidthLimitDown | int
-         if item.config.perClientBandwidthLimitDown is defined
-         else omit }}
+    perClientBandwidthLimitUp: "{{ item.config.perClientBandwidthLimitUp | int if item.config.perClientBandwidthLimitUp is defined else omit }}"
+    perClientBandwidthLimitDown: "{{ item.config.perClientBandwidthLimitDown | int if item.config.perClientBandwidthLimitDown is defined else omit }}"
     visible: "{{ item.config.visible | default(true) }}"
     availableOnAllAps: "{{ item.config.availableOnAllAps | default(true) }}"
     splashPage: "{{ item.config.splashPage | default(omit) }}"
