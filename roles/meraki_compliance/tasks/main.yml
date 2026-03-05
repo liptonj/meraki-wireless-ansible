@@ -86,13 +86,13 @@
          if (desired_ssid.enabled | default(current_ssid.enabled | default(false)))
             != (current_ssid.enabled | default(false))
          else {} }}
-    authMode_diff: >-
+    auth_mode_diff: >-
       {{ {'current': current_ssid.authMode | default('unknown'),
           'desired': desired_ssid.authMode | default(current_ssid.authMode | default('unknown'))}
          if (desired_ssid.authMode | default(current_ssid.authMode | default('unknown')))
             != (current_ssid.authMode | default('unknown'))
          else {} }}
-    encryptionMode_diff: >-
+    encryption_mode_diff: >-
       {{ {'current': current_ssid.encryptionMode | default('unknown'),
           'desired': desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown'))}
          if (desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown')))
@@ -110,13 +110,13 @@
          if (desired_ssid.broadcast | default(current_ssid.broadcast | default(false)))
             != (current_ssid.broadcast | default(false))
          else {} }}
-    minBitrate_diff: >-
+    min_bitrate_diff: >-
       {{ {'current': current_ssid.minBitrate | default(0),
           'desired': desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0))}
          if (desired_ssid.minBitrate | default(current_ssid.minBitrate | default(0)))
             != (current_ssid.minBitrate | default(0))
          else {} }}
-    bandSelection_diff: >-
+    band_selection_diff: >-
       {{ {'current': current_ssid.bandSelection | default('unknown'),
           'desired': desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown'))}
          if (desired_ssid.bandSelection | default(current_ssid.bandSelection | default('unknown')))
@@ -128,12 +128,12 @@
       {{
         dict(
           (['enabled', enabled_diff] if enabled_diff | length > 0 else []),
-          (['authMode', authMode_diff] if authMode_diff | length > 0 else []),
-          (['encryptionMode', encryptionMode_diff] if encryptionMode_diff | length > 0 else []),
+          (['authMode', auth_mode_diff] if auth_mode_diff | length > 0 else []),
+          (['encryptionMode', encryption_mode_diff] if encryption_mode_diff | length > 0 else []),
           (['visible', visible_diff] if visible_diff | length > 0 else []),
           (['broadcast', broadcast_diff] if broadcast_diff | length > 0 else []),
-          (['minBitrate', minBitrate_diff] if minBitrate_diff | length > 0 else []),
-          (['bandSelection', bandSelection_diff] if bandSelection_diff | length > 0 else [])
+          (['minBitrate', min_bitrate_diff] if min_bitrate_diff | length > 0 else []),
+          (['bandSelection', band_selection_diff] if band_selection_diff | length > 0 else [])
         ) | select('length') | list | dict
       }}
 
