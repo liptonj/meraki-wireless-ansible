@@ -70,5 +70,8 @@ temp/
 # OS
 Thumbs.db
 
+# Internal plans
+docs/plans/
+
 # Pre-commit
 .pre-commit-config.yaml.bak
