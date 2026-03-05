@@ -43,8 +43,6 @@ meraki_ssids:
   visible: true
   availableOnAllAps: true
   psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
-
-# AP Configuration
 meraki_ap_name_pattern: "{site}-{network_name}-AP-{serial[-6:]}"
 
 meraki_ap_tags:
