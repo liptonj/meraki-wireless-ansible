@@ -24,5 +24,5 @@
           SSID deployment complete!
           Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
           Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
-          SSIDs configured: {{ meraki_ssids | default([]) | length }}
+          SSIDs configured: {{ meraki_ssid_configs | default([]) | length }}
       tags: always
