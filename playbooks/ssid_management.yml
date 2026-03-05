@@ -14,6 +14,17 @@
   gather_facts: false
   become: false
 
+  pre_tasks:
+    - name: Load SSID definitions from group_vars
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/meraki_orgs.yml"
+      tags: always
+
+    - name: Resolve SSID configs with live env vars
+      ansible.builtin.set_fact:
+        meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
+      tags: always
+
   roles:
     - role: meraki_ssid
 
