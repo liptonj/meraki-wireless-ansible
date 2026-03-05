@@ -171,16 +171,13 @@
     - name: Write updated meraki_networks.yml
       ansible.builtin.copy:
         dest: "{{ meraki_networks_path }}"
-        content: |
-          ---
-          # Compliance Desired State — used by compliance_check.yml.
-          # Any deviation from these values is flagged as drift.
-          #
-          # network_name must match the Meraki network name exactly.
-          # Networks not listed here will have no desired config to compare against.
-          # Last updated: {{ ansible_date_time.iso8601 }} via configure_network.yml
-          meraki_desired_ssids:
-          {{ updated_desired_ssids | to_nice_yaml(indent=2) | indent(2) -}}
+        content: "---\n# Compliance Desired State — used by compliance_check.yml.\n\
+          # Any deviation from these values is flagged as drift.\n#\n\
+          # network_name must match the Meraki network name exactly.\n\
+          # Networks not listed here will have no desired config to compare against.\n\
+          # Last updated: {{ ansible_date_time.iso8601 }} via configure_network.yml\n\
+          meraki_desired_ssids:\n\
+          {{ updated_desired_ssids | to_nice_yaml(indent=2) | indent(2, first=True) }}"
         mode: "0644"
 
     - name: Summary
