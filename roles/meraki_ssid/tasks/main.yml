@@ -62,9 +62,21 @@
     name: "{{ item.config.name }}"
     enabled: "{{ item.config.enabled | default(true) }}"
     authMode: "{{ item.config.authMode | default('psk') }}"
-    encryptionMode: "{{ item.config.encryptionMode | default('wpa2') }}"
+    # Meraki API: encryptionMode must be 'wpa' for WPA2/WPA3; wpaEncryptionMode sets the standard
+    encryptionMode: >-
+      {{
+        'wpa'
+        if item.config.encryptionMode | default('wpa2') in ['wpa2', 'wpa3']
+        else item.config.encryptionMode | default('wpa')
+      }}
+    wpaEncryptionMode: >-
+      {{
+        item.config.wpaEncryptionMode | default(
+          'WPA3 Transition Mode' if item.config.encryptionMode | default('') == 'wpa3'
+          else 'WPA2 only'
+        )
+      }}
     psk: "{{ item.config.psk | default(omit) }}"
-    wpaEncryptionMode: "{{ item.config.wpaEncryptionMode | default(omit) }}"
     minBitrate: "{{ item.config.minBitrate | default(omit) }}"
     bandSelection: "{{ item.config.bandSelection | default(omit) }}"
     perClientBandwidthLimitUp: "{{ item.config.perClientBandwidthLimitUp | default(omit) }}"
