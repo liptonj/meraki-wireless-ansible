@@ -119,26 +119,29 @@ jobs:
       - name: Dry run playbooks (check mode)
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
+          MERAKI_ORG_NAME: ${{ secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ secrets.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK: ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST: ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET: ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
         run: |
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
               echo "Testing: $(basename $playbook)"
 
-              if [[ "$playbook" == *"compliance"* ]] || [[ "$playbook" == *"snapshot"* ]]; then
-                INVENTORY="inventory/production_compliance.yml"
-              else
-                INVENTORY="inventory/production.yml"
-              fi
+              INVENTORY="inventory/production.yml"
 
               ansible-playbook \
                 --check \
                 --diff \
                 --inventory "$INVENTORY" \
-                -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
-                -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
-                -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
                 "$playbook" || {
                   echo "Dry-run failed for $(basename $playbook)"
                   exit 1

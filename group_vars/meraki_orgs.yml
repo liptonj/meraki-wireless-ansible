@@ -1,4 +1,3 @@
----
 # SSID Deployment Config — applies to hosts in the `meraki_orgs` inventory group
 # (used by ssid_management.yml). Defines what SSIDs to deploy and operational settings.
 
@@ -10,40 +9,34 @@ meraki_api_retries: 5
 meraki_api_retry_delay: 3
 meraki_rate_limit: 3
 
-# Organization and Network IDs
-meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
-
-meraki_network_ids:
-  - "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID_1', true)) }}"
-
 # SSID Configuration
 meraki_ssids:
-  - name: "Corp-Secure"
-    enabled: true
-    authMode: "psk"
-    encryptionMode: "wpa2"
-    psk: "{{ vault_corp_secure_psk }}"
-    minBitrate: 11
-    bandSelection: "Dual band operation"
-    perClientBandwidthLimitUp: 0
-    perClientBandwidthLimitDown: 0
-    visible: true
-    availableOnAllAps: true
+- name: "Corp-Secure"
+  enabled: true
+  authMode: "psk"
+  encryptionMode: "wpa2"
+  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  perClientBandwidthLimitUp: 0
+  perClientBandwidthLimitDown: 0
+  visible: true
+  availableOnAllAps: true
 
-  - name: "Corp-Guest"
-    enabled: false
-    authMode: "open"
-    encryptionMode: "wpa"
-    minBitrate: 11
-    bandSelection: "Dual band operation"
-    visible: true
-    availableOnAllAps: true
+- name: "Corp-Guest"
+  enabled: false
+  authMode: "open"
+  encryptionMode: "wpa"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  visible: true
+  availableOnAllAps: true
 
 # AP Configuration
 meraki_ap_name_pattern: "{site}-{network_name}-AP-{serial[-6:]}"
 
 meraki_ap_tags:
-  - "managed-by-ansible"
+- "managed-by-ansible"
 
 # Operational Settings
 meraki_dry_run: false
@@ -53,6 +46,6 @@ meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.jso
 
 # Compliance Rules
 meraki_compliance_rules:
-  - name: "encryption_standard"
-    check: "all_ssids_use_wpa2_or_wpa3"
-    severity: "error"
+- name: "encryption_standard"
+  check: "all_ssids_use_wpa2_or_wpa3"
+  severity: "error"

@@ -1,0 +1,45 @@
+---
+# Resolves org/network names to IDs and populates the meraki_networks group.
+
+- name: Discover Meraki Organization and Networks
+  hosts: meraki_orgs
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: Load API key from environment
+      ansible.builtin.set_fact:
+        meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+      no_log: true
+      tags: always
+
+    - name: Verify API key is available
+      ansible.builtin.assert:
+        that:
+          - meraki_api_key | length > 0
+        fail_msg: "MERAKI_DASHBOARD_API_KEY environment variable or vault_meraki_api_key must be set"
+        quiet: true
+      tags: always
+
+  roles:
+    - role: meraki_discovery
+
+  post_tasks:
+    - name: Create dynamic host for each discovered network
+      ansible.builtin.add_host:
+        name: "{{ net.name }}"
+        groups: meraki_networks
+        meraki_network_id: "{{ net.id }}"
+        meraki_network_name_resolved: "{{ net.name }}"
+        meraki_org_id: "{{ meraki_org_id }}"
+        meraki_org_name: "{{ meraki_org_name }}"
+        meraki_api_key: "{{ meraki_api_key }}"
+        meraki_environment: "{{ meraki_environment | default('production') }}"
+        ansible_connection: local
+        ansible_python_interpreter: auto_silent
+      loop: "{{ meraki_discovered_networks }}"
+      loop_control:
+        loop_var: net
+        label: "{{ net.name }} ({{ net.id }})"
+      changed_when: false
+      tags: always

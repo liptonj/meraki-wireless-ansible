@@ -1,26 +1,38 @@
 ---
 # Meraki Production Inventory
 # Control node: localhost (connects to Meraki API, no SSH)
+#
+# Organization and networks are resolved by NAME at runtime via the
+# meraki_discovery role — no IDs needed here.
+#
+# Multi-network support:
+#   Set MERAKI_NETWORK_NAMES as a comma-separated string, e.g.:
+#     MERAKI_NETWORK_NAMES="Site-A,Site-B,Site-C"
+#
+#   Or set a single network:
+#     MERAKI_NETWORK_NAME="Site-A"
 
 all:
   children:
     meraki_orgs:
       hosts:
         labnet:
-          meraki_org_id: "{{ vault_meraki_org_id | default(lookup('env', 'MERAKI_ORG_ID') | default('YOUR_ORG_ID', true)) }}"
+          meraki_org_name: "{{ lookup('env', 'MERAKI_ORG_NAME') | default(vault_meraki_org_name | default('YOUR_ORG_NAME', true)) }}"
           meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
           meraki_base_url: "https://api.meraki.com/api/v1"
           meraki_environment: production
-          meraki_network_ids:
-            - "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID_1', true)) }}"
+          meraki_network_names: >-
+            {{ (lookup('env', 'MERAKI_NETWORK_NAMES').split(',') | map('trim') | select | list)
+               if (lookup('env', 'MERAKI_NETWORK_NAMES') | length > 0)
+               else ([lookup('env', 'MERAKI_NETWORK_NAME')]
+                     if (lookup('env', 'MERAKI_NETWORK_NAME') | length > 0)
+                     else (vault_meraki_network_names
+                           | default([vault_meraki_network_name_1 | default('YOUR_NETWORK_NAME', true)], true))) }}
 
       vars:
+        ansible_connection: local
+        ansible_python_interpreter: auto_silent
         meraki_api_timeout: 60
         meraki_api_retries: 3
         meraki_api_retry_delay: 2
         meraki_rate_limit: 4
-
-localhost:
-  ansible_connection: local
-  ansible_host: localhost
-  ansible_python_interpreter: auto_silent

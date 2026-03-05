@@ -19,8 +19,7 @@ Define your desired SSID configurations in `group_vars/meraki_networks.yml`:
 
 ```yaml
 meraki_desired_ssids:
-  - network_name: "lab_site1"
-    network_id: "{{ vault_meraki_network_id_1 }}"
+  - network_name: "Site-A"
     ssids:
       - name: "Corp-Secure"
         enabled: true
@@ -34,11 +33,11 @@ meraki_desired_ssids:
 ### 2. Run Compliance Check
 
 ```bash
-# Run compliance check with the compliance inventory
-ansible-playbook playbooks/compliance_check.yml -i inventory/production_compliance.yml
+# Run compliance check
+ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml
 
 # Dry-run mode (check for drift without changes)
-ansible-playbook playbooks/compliance_check.yml -i inventory/production_compliance.yml --check --diff
+ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --check --diff
 ```
 
 ### 3. Review Report
@@ -119,7 +118,7 @@ The `config_snapshot.yml` playbook pulls live SSID configuration from Meraki, fi
 On subsequent runs, the snapshot is compared against the stored baseline. Any difference indicates drift from manual Dashboard changes.
 
 ```bash
-ansible-playbook playbooks/config_snapshot.yml -i inventory/production_compliance.yml
+ansible-playbook playbooks/config_snapshot.yml -i inventory/production.yml
 ```
 
 ## Configuration Reference
@@ -137,8 +136,7 @@ ansible-playbook playbooks/config_snapshot.yml -i inventory/production_complianc
 
 ```yaml
 meraki_desired_ssids:
-  - network_name: "Network1"       # Must match inventory hostname
-    network_id: "N_..."            # Meraki network ID
+  - network_name: "Network1"       # Must match Meraki network name
     ssids:
       - name: "SSID Name"
         enabled: true

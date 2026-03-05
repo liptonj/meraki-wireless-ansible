@@ -11,31 +11,185 @@ on:
         options:
           - production
       dry_run:
-        description: 'Dry run (check mode only)'
+        description: 'Dry run (check mode — no changes pushed to Meraki)'
         required: true
         default: true
         type: boolean
 
-  push:
-    branches:
-      - main
-    paths:
-      - 'group_vars/**'
-      - 'roles/meraki_ssid/**'
-      - 'playbooks/ssid_management.yml'
+      # ── New SSID configuration ─────────────────────────────────────────────
+      # Leave ssid_name blank to deploy the existing group_vars config unchanged.
+      ssid_name:
+        description: 'SSID name to add / update (leave blank to skip)'
+        required: false
+        default: ''
+
+      auth_mode:
+        description: 'Security type'
+        required: false
+        default: 'psk'
+        type: choice
+        options:
+          - psk
+          - 8021x-radius
+          - open
+
+      encryption_mode:
+        description: 'Encryption standard'
+        required: false
+        default: 'wpa3'
+        type: choice
+        options:
+          - wpa3
+          - wpa2
+          - wpa
+
+      psk_secret:
+        description: 'PSK to use — pick a saved secret (PSK auth only)'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - CORP_SECURE_PSK
+          - GUEST_SSID_PSK
+          - CORPORATE_BYOD_PSK
+          - IOT_SSID_PSK
+
+      band_selection:
+        description: 'Band selection'
+        required: false
+        default: 'Dual band operation'
+        type: choice
+        options:
+          - 'Dual band operation'
+          - '5 GHz band only'
+          - '2.4 GHz band only'
+
+      ssid_enabled:
+        description: 'Enable SSID on deploy'
+        required: false
+        default: true
+        type: boolean
+
+      ssid_visible:
+        description: 'Broadcast SSID (visible to clients)'
+        required: false
+        default: true
+        type: boolean
+
+      # ── Network targeting ──────────────────────────────────────────────────
+      target_networks:
+        description: >-
+          Network names to deploy to — comma-separated (e.g. "Site-A,Site-C").
+          Leave blank to use the default MERAKI_NETWORK_NAMES variable.
+        required: false
+        default: ''
+
+      scope_ssid:
+        description: >-
+          Existing SSID name to deploy to target_networks (e.g. "Corp-Secure").
+          Leave blank to deploy ALL SSIDs in meraki_orgs.yml to the target networks.
+        required: false
+        default: ''
 
 permissions:
   contents: write
   issues: write
 
+# Prevent concurrent deploys to the same environment
+concurrency:
+  group: deploy-ssids-${{ github.event.inputs.environment || 'production' }}
+  cancel-in-progress: false
+
 jobs:
-  deploy:
-    name: Deploy SSIDs to Meraki
+
+  # ── Job 1: write SSID config into group_vars and commit ───────────────────
+  configure-ssid:
+    name: Update group_vars with new SSID config
     runs-on: ubuntu-latest
+    if: github.event.inputs.ssid_name != ''
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruamel.yaml
+        run: pip install "ruamel.yaml>=0.18"
+
+      - name: Validate inputs
+        run: |
+          AUTH="${{ github.event.inputs.auth_mode }}"
+          PSK="${{ github.event.inputs.psk_secret }}"
+          if [ "$AUTH" = "psk" ] && [ "$PSK" = "none" ]; then
+            echo "::error::auth_mode is 'psk' but no psk_secret was selected. Pick a saved PSK."
+            exit 1
+          fi
+
+      - name: Update group_vars/meraki_orgs.yml
+        env:
+          SSID_NAME:       ${{ github.event.inputs.ssid_name }}
+          AUTH_MODE:       ${{ github.event.inputs.auth_mode }}
+          ENCRYPTION_MODE: ${{ github.event.inputs.encryption_mode }}
+          PSK_SECRET:      ${{ github.event.inputs.psk_secret }}
+          BAND_SELECTION:  ${{ github.event.inputs.band_selection }}
+          SSID_ENABLED:    ${{ github.event.inputs.ssid_enabled }}
+          SSID_VISIBLE:    ${{ github.event.inputs.ssid_visible }}
+        run: python scripts/update_ssid_config.py
+
+      - name: Commit updated group_vars
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add group_vars/meraki_orgs.yml
+          if git diff --cached --quiet; then
+            echo "group_vars/meraki_orgs.yml unchanged — nothing to commit."
+          else
+            git commit -m "feat(ssids): add/update SSID '${{ github.event.inputs.ssid_name }}' [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SSID Config Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| SSID Name | \`${{ github.event.inputs.ssid_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auth Mode | \`${{ github.event.inputs.auth_mode }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Encryption | \`${{ github.event.inputs.encryption_mode }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| PSK Secret | \`${{ github.event.inputs.psk_secret }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Band | \`${{ github.event.inputs.band_selection }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Enabled | \`${{ github.event.inputs.ssid_enabled }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Visible | \`${{ github.event.inputs.ssid_visible }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Networks | \`${{ github.event.inputs.target_networks || '(default)' }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ── Job 2: update meraki_networks.yml with network desired state ───────────
+  configure-network:
+    name: Add Networks to Compliance Desired State
+    runs-on: ubuntu-latest
+    needs: [configure-ssid]
+    # Only run when target_networks is specified
+    if: >-
+      always()
+      && github.event.inputs.target_networks != ''
+      && (needs.configure-ssid.result == 'success' || needs.configure-ssid.result == 'skipped')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Pick up any changes committed by configure-ssid
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,37 +210,123 @@ jobs:
           pip install -r requirements.txt
           ansible-galaxy collection install -r requirements.yml
 
-      - name: Deploy SSIDs
-        env:
-          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
+      - name: Update meraki_networks.yml for target networks
         run: |
-          EXTRA_ARGS=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ] || [ "${{ github.event_name }}" = "push" ]; then
-            echo "Running in CHECK MODE (dry run)"
-            EXTRA_ARGS="--check --diff"
+          ansible-playbook playbooks/configure_network.yml \
+            -e "target_networks=${{ github.event.inputs.target_networks }}" \
+            -e "scope_ssid=${{ github.event.inputs.scope_ssid }}"
+
+      - name: Commit updated meraki_networks.yml
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add group_vars/meraki_networks.yml
+          if git diff --cached --quiet; then
+            echo "meraki_networks.yml unchanged — nothing to commit."
           else
-            echo "Running in LIVE MODE — SSIDs will be configured"
+            git commit -m "feat(networks): add '${{ github.event.inputs.target_networks }}' to desired state [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin main
+            git push
           fi
 
-          ansible-playbook playbooks/ssid_management.yml \
-            -i inventory/production.yml \
-            -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
-            -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
-            -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
-            -e "meraki_network_id=${MERAKI_NETWORK_ID}" \
-            $EXTRA_ARGS
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## Network Desired State Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Networks | \`${{ github.event.inputs.target_networks }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scope SSID | \`${{ github.event.inputs.scope_ssid || '(all SSIDs)' }}\` |" >> $GITHUB_STEP_SUMMARY
 
-  compliance:
-    name: Post-Deploy Compliance Check
+  # ── Job 3: run the Ansible deploy ─────────────────────────────────────────
+  deploy:
+    name: Deploy SSIDs to Meraki
     runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event.inputs.dry_run != 'true'
+    needs: [configure-ssid, configure-network]
+    # Run when both configure jobs are either done or were skipped
+    if: >-
+      always()
+      && (needs.configure-ssid.result == 'success' || needs.configure-ssid.result == 'skipped')
+      && (needs.configure-network.result == 'success' || needs.configure-network.result == 'skipped')
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Pull the latest commit so we get any group_vars update from configure-ssid
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+        # File is deleted in the always() cleanup step below
+
+      - name: Deploy SSIDs
+        env:
+          MERAKI_DASHBOARD_API_KEY:         ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:                  ${{ vars.MERAKI_ORG_NAME }}
+          # target_networks overrides the default network list when specified
+          MERAKI_NETWORK_NAMES: >-
+            ${{ github.event.inputs.target_networks != ''
+                && github.event.inputs.target_networks
+                || vars.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK:                  ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK:                   ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK:               ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK:                     ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST:             ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET:           ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST:    ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET:  ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+        run: |
+          EXTRA_ARGS="--vault-password-file .vault_pass"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "Running in CHECK MODE (dry run — no Meraki changes)"
+            EXTRA_ARGS="$EXTRA_ARGS --check --diff"
+          else
+            echo "Running in LIVE MODE — SSIDs will be configured on Meraki"
+          fi
+
+          ansible-playbook playbooks/ssid_management.yml \
+            -i inventory/production.yml \
+            $EXTRA_ARGS
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+  # ── Job 4: post-deploy compliance check ───────────────────────────────────
+  compliance:
+    name: Post-Deploy Compliance Check
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: github.event.inputs.dry_run != 'true' && needs.deploy.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -99,17 +339,60 @@ jobs:
           pip install -r requirements.txt
           ansible-galaxy collection install -r requirements.yml
 
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
       - name: Run compliance check
         env:
-          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_ID: ${{ secrets.MERAKI_ORG_ID }}
-          MERAKI_NETWORK_ID: ${{ secrets.MERAKI_NETWORK_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERAKI_DASHBOARD_API_KEY:         ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:                  ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ github.event.inputs.target_networks != ''
+                && github.event.inputs.target_networks
+                || vars.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK:                  ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK:                   ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK:               ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK:                     ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST:             ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET:           ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST:    ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET:  ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          GITHUB_TOKEN:                     ${{ secrets.GITHUB_TOKEN }}
+          WEBEX_BOT_TOKEN:                  ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL:                ${{ secrets.WEBEX_ALERT_EMAIL }}
         run: |
           ansible-playbook playbooks/compliance_check.yml \
-            -i inventory/production_compliance.yml \
-            -e "vault_meraki_api_key=${MERAKI_DASHBOARD_API_KEY}" \
-            -e "vault_meraki_org_id=${MERAKI_ORG_ID}" \
-            -e "vault_meraki_network_id_1=${MERAKI_NETWORK_ID}" \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass \
             -e "compliance_github_repo=${{ github.repository }}" \
             -e "compliance_github_token=${GITHUB_TOKEN}"
+
+      - name: Snapshot post-deploy config to baselines
+        if: always()
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:          ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES:     ${{ vars.MERAKI_NETWORK_NAMES }}
+        run: |
+          ansible-playbook playbooks/config_snapshot.yml \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass
+
+      - name: Commit updated baseline after deploy
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baselines/
+          if git diff --cached --quiet; then
+            echo "No baseline changes after deploy."
+          else
+            git commit -m "chore(baselines): post-deploy snapshot [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
