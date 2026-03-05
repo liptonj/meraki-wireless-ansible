@@ -1,13 +1,12 @@
 ---
 # Compliance Desired State — applies to hosts in the `meraki_networks` inventory group
-# (used by compliance_check.yml and config_snapshot.yml). Defines what SSIDs SHOULD look like.
-# Any deviation from this is flagged as configuration drift.
+# (used by compliance_check.yml and config_snapshot.yml). Any deviation is flagged as drift.
 
 meraki_desired_ssids:
-  - network_name: "sandbox_network"
+  - network_name: "lab_site1"
     network_id: "{{ vault_meraki_network_id_1 | default(lookup('env', 'MERAKI_NETWORK_ID') | default('YOUR_NETWORK_ID', true)) }}"
     ssids:
-      - name: "Sandbox-Test"
+      - name: "Corp-Secure"
         enabled: true
         authMode: "psk"
         encryptionMode: "wpa2"
