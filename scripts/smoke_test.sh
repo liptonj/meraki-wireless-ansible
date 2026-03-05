@@ -1,46 +1,27 @@
 #!/bin/bash
 # Smoke test script for Meraki Wireless Ansible
-# Validates playbook syntax and runs basic connectivity checks
 #
-# Usage: ./scripts/smoke_test.sh
-# Or: make smoke-test
-#
-# This script performs quick validation to ensure everything is configured correctly
-# Perfect for verifying setup before running full playbooks
+# Usage: ./scripts/smoke_test.sh or make smoke-test
 
-set -e  # Exit on any error
+set -e
 
-# Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
+info()    { echo -e "${BLUE}ℹ️  $1${NC}"; }
+success() { echo -e "${GREEN}✅ $1${NC}"; }
+warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+error()   { echo -e "${RED}❌ $1${NC}"; }
 
-success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-error() {
-    echo -e "${RED}❌ $1${NC}"
-}
-
-# Banner
 echo ""
 echo "=========================================="
 echo "  Meraki Wireless Ansible Smoke Tests"
 echo "=========================================="
 echo ""
 
-# Check if virtual environment is activated
 if [ -z "$VIRTUAL_ENV" ]; then
     if [ -d "venv" ]; then
         info "Activating virtual environment..."
@@ -51,26 +32,23 @@ if [ -z "$VIRTUAL_ENV" ]; then
     fi
 fi
 
-# Check if .env file exists
 if [ ! -f ".env" ]; then
     warning ".env file not found. Creating from .env.example..."
     if [ -f ".env.example" ]; then
         cp .env.example .env
-        warning "⚠️  Please edit .env and add your Meraki API credentials before running playbooks!"
+        warning "Please edit .env and add your Meraki API credentials before running playbooks!"
     else
         error ".env.example not found. Cannot proceed."
         exit 1
     fi
 fi
 
-# Load environment variables
 if [ -f ".env" ]; then
-    set -a  # Automatically export all variables
+    set -a
     source .env
     set +a
 fi
 
-# Check if API key is set
 if [ -z "$MERAKI_DASHBOARD_API_KEY" ] || [ "$MERAKI_DASHBOARD_API_KEY" = "your_meraki_dashboard_api_key_here" ]; then
     warning "MERAKI_DASHBOARD_API_KEY not configured in .env"
     warning "Smoke tests will check syntax only (no API calls)"
@@ -80,7 +58,6 @@ else
     SKIP_API_TESTS=false
 fi
 
-# Test 1: Check Ansible installation
 info "Test 1: Verifying Ansible installation..."
 if command -v ansible-playbook &> /dev/null; then
     ANSIBLE_VERSION=$(ansible-playbook --version | head -n 1)
@@ -90,7 +67,6 @@ else
     exit 1
 fi
 
-# Test 2: Check Ansible Lint installation
 info "Test 2: Verifying ansible-lint installation..."
 if command -v ansible-lint &> /dev/null; then
     LINT_VERSION=$(ansible-lint --version | head -n 1)
@@ -100,7 +76,6 @@ else
     exit 1
 fi
 
-# Test 3: Syntax check on all playbooks
 info "Test 3: Checking playbook syntax..."
 PLAYBOOKS=(
     "playbooks/ssid_management.yml"
@@ -127,34 +102,29 @@ if [ $SYNTAX_ERRORS -gt 0 ]; then
     exit 1
 fi
 
-# Test 4: Run ansible-lint
 info "Test 4: Running ansible-lint..."
 if ansible-lint playbooks/ roles/ > /dev/null 2>&1; then
     success "ansible-lint passed!"
 else
     warning "ansible-lint found issues (non-blocking)"
-    # Show linting output
     ansible-lint playbooks/ roles/ || true
 fi
 
-# Test 5: Validate inventory file
 info "Test 5: Validating inventory file..."
-if [ -f "inventory/sandbox.yml" ]; then
-    if ansible-inventory --list -i inventory/sandbox.yml > /dev/null 2>&1; then
+if [ -f "inventory/production.yml" ]; then
+    if ansible-inventory --list -i inventory/production.yml > /dev/null 2>&1; then
         success "Inventory file is valid"
     else
         error "Inventory file has errors"
         exit 1
     fi
 else
-    warning "Inventory file not found: inventory/sandbox.yml"
+    warning "Inventory file not found: inventory/production.yml"
 fi
 
-# Test 6: API connectivity test (if API key is configured)
 if [ "$SKIP_API_TESTS" = false ]; then
     info "Test 6: Testing Meraki API connectivity..."
-    
-    # Try to list organizations (read-only operation, safe for testing)
+
     if python3 -c "
 import os
 import sys
@@ -174,15 +144,13 @@ except Exception as e:
         success "Meraki API connection successful!"
     else
         warning "Meraki API connection test failed (check your API key)"
-        warning "Check your API key and organization ID in .env"
     fi
 else
     info "Test 6: Skipping API connectivity test (no API key configured)"
 fi
 
-# Summary
 echo ""
-success "Smoke tests completed! 🎉"
+success "Smoke tests completed!"
 echo ""
 if [ "$SKIP_API_TESTS" = true ]; then
     warning "Note: API tests were skipped. Configure MERAKI_DASHBOARD_API_KEY in .env to enable full testing."
