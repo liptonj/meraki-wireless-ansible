@@ -187,7 +187,11 @@
             **Network: {{ network.network_name }}**
             {% for ssid in network.ssids %}
             {% if ssid.drift_detected %}
-            - SSID `{{ ssid.name }}`: {% for field, values in ssid.differences.items() %}`{{ field }}` changed from `{{ values.current }}` to `{{ values.desired }}`{% if not loop.last %}, {% endif %}{% endfor %}
+            - SSID `{{ ssid.name }}`:
+              {% for field, values in ssid.differences.items() %}
+              `{{ field }}`: `{{ values.current }}` -> `{{ values.desired }}`
+              {% if not loop.last %}, {% endif %}
+              {% endfor %}
 
             {% endif %}
             {% endfor %}
