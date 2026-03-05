@@ -80,7 +80,7 @@
   retries: "{{ meraki_ssid_api_retries }}"
   delay: "{{ meraki_ssid_api_retry_delay }}"
   register: ssid_results
-  notify: log ssid changes
+  notify: Log SSID changes
   tags:
     - ssid
     - configure
