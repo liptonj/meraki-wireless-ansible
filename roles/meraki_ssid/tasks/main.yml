@@ -54,6 +54,32 @@
   tags:
     - ssid
 
+- name: Validate SSID config compatibility
+  ansible.builtin.assert:
+    that:
+      - >-
+        item.authMode | default('psk') != 'open'
+        or item.encryptionMode | default('open') == 'open'
+      - >-
+        item.perClientBandwidthLimitUp is not defined
+        or item.perClientBandwidthLimitUp | string | regex_search('^[0-9]+$')
+      - >-
+        item.perClientBandwidthLimitDown is not defined
+        or item.perClientBandwidthLimitDown | string | regex_search('^[0-9]+$')
+    fail_msg: >-
+      SSID "{{ item.name }}" has invalid config:
+      authMode={{ item.authMode | default('psk') }}
+      encryptionMode={{ item.encryptionMode | default('?') }}
+      — open auth requires encryptionMode='open';
+      bandwidth limits must be integers.
+    quiet: false
+  loop: "{{ meraki_ssid_configs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ssid
+    - validate
+
 - name: Configure SSIDs on Meraki network
   cisco.meraki.networks_wireless_ssids:
     networkId: "{{ meraki_network_id }}"
@@ -62,25 +88,37 @@
     name: "{{ item.config.name }}"
     enabled: "{{ item.config.enabled | default(true) }}"
     authMode: "{{ item.config.authMode | default('psk') }}"
-    # Meraki API: encryptionMode must be 'wpa' for WPA2/WPA3; wpaEncryptionMode sets the standard
+    # Meraki API: encryptionMode must be 'open' for open auth; 'wpa' for WPA2/WPA3
+    # wpaEncryptionMode must be omitted when authMode is open
     encryptionMode: >-
-      {{
-        'wpa'
-        if item.config.encryptionMode | default('wpa2') in ['wpa2', 'wpa3']
-        else item.config.encryptionMode | default('wpa')
-      }}
+      {% if item.config.authMode | default('psk') == 'open' -%}
+        open
+      {%- elif item.config.encryptionMode | default('wpa2') in ['wpa2', 'wpa3'] -%}
+        wpa
+      {%- else -%}
+        {{ item.config.encryptionMode | default('wpa') }}
+      {%- endif %}
     wpaEncryptionMode: >-
-      {{
-        item.config.wpaEncryptionMode | default(
-          'WPA3 Transition Mode' if item.config.encryptionMode | default('') == 'wpa3'
-          else 'WPA2 only'
-        )
-      }}
+      {{ omit
+         if item.config.authMode | default('psk') == 'open'
+         else item.config.wpaEncryptionMode | default(
+           'WPA3 Transition Mode' if item.config.encryptionMode | default('') == 'wpa3'
+           else 'WPA2 only'
+         ) }}
     psk: "{{ item.config.psk | default(omit) }}"
-    minBitrate: "{{ item.config.minBitrate | default(omit) }}"
+    minBitrate: >-
+      {{ item.config.minBitrate | float
+         if item.config.minBitrate is defined
+         else omit }}
     bandSelection: "{{ item.config.bandSelection | default(omit) }}"
-    perClientBandwidthLimitUp: "{{ item.config.perClientBandwidthLimitUp | default(omit) }}"
-    perClientBandwidthLimitDown: "{{ item.config.perClientBandwidthLimitDown | default(omit) }}"
+    perClientBandwidthLimitUp: >-
+      {{ item.config.perClientBandwidthLimitUp | int
+         if item.config.perClientBandwidthLimitUp is defined
+         else omit }}
+    perClientBandwidthLimitDown: >-
+      {{ item.config.perClientBandwidthLimitDown | int
+         if item.config.perClientBandwidthLimitDown is defined
+         else omit }}
     visible: "{{ item.config.visible | default(true) }}"
     availableOnAllAps: "{{ item.config.availableOnAllAps | default(true) }}"
     splashPage: "{{ item.config.splashPage | default(omit) }}"

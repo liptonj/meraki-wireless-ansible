@@ -26,7 +26,7 @@ meraki_ssids:
 - name: "Corp-Guest"
   enabled: false
   authMode: "open"
-  encryptionMode: "wpa"
+  encryptionMode: "open"
   minBitrate: 11
   bandSelection: "Dual band operation"
   visible: true
