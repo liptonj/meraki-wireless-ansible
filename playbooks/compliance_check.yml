@@ -202,7 +202,7 @@
         - alerting
         - github
 
-    - name: Build Webex adaptive card payload
+    - name: Build Webex card violation details
       ansible.builtin.set_fact:
         webex_card_violation_items:
           - type: TextBlock
@@ -229,6 +229,17 @@
                  | join(', ') }}
             wrap: true
             size: small
+      when:
+        - compliance_results is defined
+        - compliance_failed | default(false) | bool
+      run_once: true
+      tags:
+        - alerting
+        - webex
+        - webex-bot
+
+    - name: Build Webex adaptive card payload
+      ansible.builtin.set_fact:
         webex_compliance_card:
           "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
           type: "AdaptiveCard"
