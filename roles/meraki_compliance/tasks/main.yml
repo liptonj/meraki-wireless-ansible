@@ -1,17 +1,4 @@
 ---
-- name: Initialize compliance results
-  ansible.builtin.set_fact:
-    compliance_results:
-      networks_checked: 0
-      networks_compliant: 0
-      networks_non_compliant: 0
-      ssids_checked: 0
-      ssids_compliant: 0
-      ssids_non_compliant: 0
-      network_details: []
-      timestamp: "{{ ansible_date_time.iso8601 }}"
-      playbook_mode: "{{ 'CHECK MODE (DRY-RUN)' if ansible_check_mode else 'LIVE MODE' }}"
-
 - name: Gather current SSID configurations from Meraki
   cisco.meraki.networks_wireless_ssids_info:
     networkId: "{{ meraki_network_id }}"
@@ -57,6 +44,10 @@
       ssids: []
       drift_detected: false
       drift_count: 0
+      security_violations: []
+      security_critical_count: 0
+      security_warning_count: 0
+      security_passed: true
   tags:
     - compliance
     - compare
@@ -66,7 +57,7 @@
     network_compliance: "{{ network_compliance | combine({'ssids': network_compliance.ssids + [ssid_check_result]}) }}"
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
-    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   vars:
     current_ssid: "{{ item }}"
     desired_ssid: "{{ desired_config.ssids | default([]) | selectattr('name', 'equalto', item.name | default('')) | first | default({}) }}"
@@ -116,18 +107,22 @@
 
     ssid_differences: >-
       {{
-        dict(
-          (['enabled', enabled_diff] if enabled_diff | length > 0 else []),
-          (['authMode', auth_mode_diff] if auth_mode_diff | length > 0 else []),
-          (['encryptionMode', encryption_mode_diff] if encryption_mode_diff | length > 0 else []),
-          (['visible', visible_diff] if visible_diff | length > 0 else []),
-          (['broadcast', broadcast_diff] if broadcast_diff | length > 0 else []),
-          (['minBitrate', min_bitrate_diff] if min_bitrate_diff | length > 0 else []),
-          (['bandSelection', band_selection_diff] if band_selection_diff | length > 0 else [])
-        ) | select('length') | list | dict
+        {
+          'enabled': enabled_diff,
+          'authMode': auth_mode_diff,
+          'encryptionMode': encryption_mode_diff,
+          'visible': visible_diff,
+          'broadcast': broadcast_diff,
+          'minBitrate': min_bitrate_diff,
+          'bandSelection': band_selection_diff
+        }
+        | dict2items
+        | rejectattr('value', 'equalto', {})
+        | items2dict
       }}
 
-    ssid_compliant: "{{ (desired_ssid | length > 0) and (ssid_differences | length == 0) }}"
+    # Networks not in desired state should not be marked non-compliant.
+    ssid_compliant: "{{ (desired_ssid | length == 0) or (ssid_differences | length == 0) }}"
 
     ssid_check_result:
       name: "{{ current_ssid.name | default('Unknown') }}"
@@ -170,42 +165,6 @@
   when: network_compliance.ssids is defined
   tags:
     - compliance
-
-- name: Update global compliance results
-  ansible.builtin.set_fact:
-    compliance_results: >-
-      {{
-        compliance_results | combine({
-          'networks_checked': compliance_results.networks_checked + 1,
-          'networks_compliant': compliance_results.networks_compliant + (1 if network_compliance.compliant else 0),
-          'networks_non_compliant': compliance_results.networks_non_compliant + (1 if not network_compliance.compliant else 0),
-          'ssids_checked': compliance_results.ssids_checked + (network_compliance.ssids | length),
-          'ssids_compliant': compliance_results.ssids_compliant + (network_compliance.ssids | selectattr('compliant', 'equalto', true) | list | length),
-          'ssids_non_compliant': compliance_results.ssids_non_compliant
-            + (network_compliance.ssids
-               | selectattr('compliant', 'equalto', false)
-               | list | length),
-          'network_details': compliance_results.network_details + [network_compliance]
-        })
-      }}
-  when: network_compliance is defined
-  tags:
-    - compliance
-    - reporting
-
-- name: Generate compliance report
-  ansible.builtin.template:
-    src: compliance_report.md.j2
-    dest: "{{ compliance_report_dir }}/{{ compliance_report_filename }}"
-    mode: '0644'
-  vars:
-    compliance_data: "{{ compliance_results }}"
-    network_details: "{{ network_compliance }}"
-  delegate_to: localhost
-  run_once: true
-  tags:
-    - compliance
-    - reporting
 
 - name: Display drift detection summary (check mode)
   ansible.builtin.debug:

@@ -50,8 +50,8 @@ fi
 info "Activating virtual environment..."
 source venv/bin/activate
 
-info "Upgrading pip, setuptools, and wheel..."
-pip install --quiet --upgrade pip setuptools wheel
+info "Upgrading pip..."
+pip install --quiet --upgrade pip
 success "pip upgraded!"
 
 info "Installing Python dependencies from requirements.txt..."

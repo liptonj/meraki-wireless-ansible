@@ -58,7 +58,7 @@ The following SSIDs have configuration differences from the desired state:
 
 **Remediation:** Run the SSID configuration playbook to restore compliance:
 ```bash
-ansible-playbook playbooks/configure_ssids.yml --limit {{ network.network_name }}
+ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml --limit {{ network.network_name }}
 ```
 
 {% endif %}

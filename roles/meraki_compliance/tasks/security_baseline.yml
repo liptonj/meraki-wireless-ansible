@@ -20,7 +20,7 @@
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
-    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
     - security_baseline_rules.no_open_auth.enabled | default(true)
     - item.enabled | default(false) | bool
@@ -43,7 +43,7 @@
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
-    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
     - security_baseline_rules.minimum_encryption.enabled | default(true)
     - item.enabled | default(false) | bool
@@ -70,11 +70,18 @@
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
-    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
     - security_baseline_rules.guest_bandwidth_limits.enabled | default(true)
     - item.enabled | default(false) | bool
-    - item.name | default('') | regex_search(security_baseline_rules.guest_bandwidth_limits.guest_ssid_pattern | default('(?i)guest'))
+    - >-
+      (
+        item.name | default('')
+        | regex_search(
+          security_baseline_rules.guest_bandwidth_limits.guest_ssid_pattern
+          | default('(?i)guest')
+        )
+      ) is not none
     - (item.perClientBandwidthLimitUp | default(0) | int) == 0
     - (item.perClientBandwidthLimitDown | default(0) | int) == 0
   tags:
@@ -95,7 +102,7 @@
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
-    label: "{{ item.name | default('SSID ' + (loop.index0 | string)) }}"
+    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
     - security_baseline_rules.disabled_ssid_broadcast.enabled | default(true)
     - not (item.enabled | default(false) | bool)
@@ -120,33 +127,20 @@
     - compliance
     - security
 
-- name: Merge security violations into compliance results
+- name: Merge security violations into network compliance
   ansible.builtin.set_fact:
-    compliance_results: >-
+    network_compliance: >-
       {{
-        compliance_results | combine({
+        network_compliance | combine({
           'security_violations': security_violations,
           'security_critical_count': security_violations | selectattr('severity', 'equalto', 'critical') | list | length,
           'security_warning_count': security_violations | selectattr('severity', 'equalto', 'warning') | list | length,
-          'security_passed': (security_violations | length == 0)
+          'security_passed': (security_violations | length == 0),
+          'compliant': network_compliance.compliant and (
+            security_violations | selectattr('severity', 'equalto', 'critical') | list | length == 0
+          )
         })
       }}
-  tags:
-    - compliance
-    - security
-
-- name: Mark compliance as failed if critical security violations found
-  ansible.builtin.set_fact:
-    compliance_results: >-
-      {{
-        compliance_results | combine({
-          'networks_non_compliant': compliance_results.networks_non_compliant
-            + (1 if (security_violations
-               | selectattr('severity', 'equalto', 'critical')
-               | list | length > 0) else 0)
-        })
-      }}
-  when: security_violations | selectattr('severity', 'equalto', 'critical') | list | length > 0
   tags:
     - compliance
     - security

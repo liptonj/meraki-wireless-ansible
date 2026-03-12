@@ -42,16 +42,16 @@
     }
   },
 
-  "postCreateCommand": "bash -c 'pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && ansible-galaxy collection install -r requirements.yml'",
+  "postCreateCommand": "bash -c 'pip install --upgrade pip && pip install -r requirements.txt && ansible-galaxy collection install -r requirements.yml'",
   "postStartCommand": "echo 'Meraki Wireless Ansible dev container ready!'",
 
-  "workspaceFolder": "/workspace",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace/meraki-wireless-ansible",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/meraki-wireless-ansible,type=bind",
 
   "remoteUser": "vscode",
 
   "containerEnv": {
-    "ANSIBLE_CONFIG": "/workspace/ansible.cfg",
+    "ANSIBLE_CONFIG": "/workspace/meraki-wireless-ansible/ansible.cfg",
     "ANSIBLE_FORCE_COLOR": "1"
   },
 

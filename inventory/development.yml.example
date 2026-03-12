@@ -7,6 +7,8 @@
 
 all:
   children:
+    meraki_networks:
+      hosts: {}
     meraki_orgs:
       hosts:
         devnet:

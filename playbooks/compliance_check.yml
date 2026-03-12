@@ -33,6 +33,50 @@
         desired_ssid_configs: "{{ meraki_desired_ssids | default([]) }}"
 
   post_tasks:
+    - name: Collect per-network compliance details
+      ansible.builtin.set_fact:
+        compliance_network_details: >-
+          {{
+            groups['meraki_networks'] | default([])
+            | map('extract', hostvars)
+            | selectattr('network_compliance', 'defined')
+            | map(attribute='network_compliance')
+            | list
+          }}
+      run_once: true
+      tags: always
+
+    - name: Aggregate compliance results across all discovered networks
+      ansible.builtin.set_fact:
+        compliance_results:
+          networks_checked: "{{ compliance_network_details | length }}"
+          networks_compliant: "{{ compliance_network_details | selectattr('compliant', 'equalto', true) | list | length }}"
+          networks_non_compliant: "{{ compliance_network_details | selectattr('compliant', 'equalto', false) | list | length }}"
+          ssids_checked: "{{ compliance_network_details | map(attribute='ssids') | flatten | list | length }}"
+          ssids_compliant: "{{ compliance_network_details | map(attribute='ssids') | flatten | selectattr('compliant', 'equalto', true) | list | length }}"
+          ssids_non_compliant: "{{ compliance_network_details | map(attribute='ssids') | flatten | selectattr('compliant', 'equalto', false) | list | length }}"
+          security_critical_count: "{{ compliance_network_details | map(attribute='security_critical_count') | map('int') | sum }}"
+          security_warning_count: "{{ compliance_network_details | map(attribute='security_warning_count') | map('int') | sum }}"
+          security_passed: "{{ (compliance_network_details | map(attribute='security_critical_count') | map('int') | sum) == 0 }}"
+          network_details: "{{ compliance_network_details }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          playbook_mode: "{{ 'CHECK MODE (DRY-RUN)' if ansible_check_mode else 'LIVE MODE' }}"
+      run_once: true
+      tags: always
+
+    - name: Generate compliance report
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/meraki_compliance/templates/compliance_report.md.j2"
+        dest: "{{ compliance_report_dir }}/{{ compliance_report_filename }}"
+        mode: '0644'
+      vars:
+        compliance_data: "{{ compliance_results }}"
+      delegate_to: localhost
+      run_once: true
+      tags:
+        - compliance
+        - reporting
+
     - name: Display compliance summary
       ansible.builtin.debug:
         msg: |
@@ -184,25 +228,31 @@
 
     - name: Build Webex card violation details
       ansible.builtin.set_fact:
-        webex_card_violation_items: >-
-          [
-          {% for network in compliance_results.network_details | default([]) %}
-          {% if not network.compliant %}
-          {"type": "TextBlock", "text": "{{ network.network_name }}", "weight": "bolder", "size": "medium", "spacing": "medium"},
-          {% for ssid in network.ssids %}
-          {% if ssid.drift_detected %}
-          {"type": "TextBlock", "text": "SSID: {{ ssid.name }}", "weight": "bolder", "spacing": "small"},
-          {% for field, values in ssid.differences.items() %}
-          {"type": "ColumnSet", "spacing": "none", "columns": [
-            {"type": "Column", "width": "auto", "items": [{"type": "TextBlock", "text": "{{ field }}", "weight": "bolder", "size": "small"}]},
-            {"type": "Column", "width": "stretch", "items": [{"type": "TextBlock", "text": "{{ values.current }} → {{ values.desired }}", "size": "small", "color": "attention"}]}
-          ]},
-          {% endfor %}
-          {% endif %}
-          {% endfor %}
-          {% endif %}
-          {% endfor %}
-          ]
+        webex_card_violation_items:
+          - type: TextBlock
+            text: >-
+              Non-compliant networks:
+              {{ compliance_results.network_details
+                 | default([])
+                 | selectattr('compliant', 'equalto', false)
+                 | map(attribute='network_name')
+                 | list
+                 | join(', ') }}
+            wrap: true
+            size: small
+          - type: TextBlock
+            text: >-
+              Drifted SSIDs:
+              {{ compliance_results.network_details
+                 | default([])
+                 | map(attribute='ssids')
+                 | flatten
+                 | selectattr('drift_detected', 'equalto', true)
+                 | map(attribute='name')
+                 | list
+                 | join(', ') }}
+            wrap: true
+            size: small
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool

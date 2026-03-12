@@ -29,7 +29,7 @@ setup:
 		python3 -m venv venv; \
 	fi
 	@echo "Installing dependencies..."
-	@$(PIP) install --upgrade pip setuptools wheel
+	@$(PIP) install --upgrade pip
 	@$(PIP) install -r requirements.txt
 	@echo "Installing Ansible collections..."
 	@$(ANSIBLE_GALAXY) collection install -r requirements.yml
