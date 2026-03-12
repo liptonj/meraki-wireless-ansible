@@ -78,8 +78,8 @@ jobs:
       - name: Run compliance check
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_NAME: ${{ secrets.MERAKI_ORG_NAME }}
-          MERAKI_NETWORK_NAMES: ${{ secrets.MERAKI_NETWORK_NAMES }}
+          MERAKI_ORG_NAME: ${{ github.event.client_payload.meraki_org_name || vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ github.event.client_payload.meraki_network_names || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
           CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
           GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
           CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
@@ -103,8 +103,8 @@ jobs:
       - name: Snapshot current config to baselines
         env:
           MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
-          MERAKI_ORG_NAME: ${{ secrets.MERAKI_ORG_NAME }}
-          MERAKI_NETWORK_NAMES: ${{ secrets.MERAKI_NETWORK_NAMES }}
+          MERAKI_ORG_NAME: ${{ github.event.client_payload.meraki_org_name || vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ github.event.client_payload.meraki_network_names || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
         run: |
           ansible-playbook playbooks/config_snapshot.yml \
             -i inventory/production.yml
