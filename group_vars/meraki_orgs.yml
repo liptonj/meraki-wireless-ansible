@@ -15,14 +15,13 @@ meraki_ssids:
   enabled: true
   authMode: "psk"
   encryptionMode: "wpa2"
-  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
   minBitrate: 11
   bandSelection: "Dual band operation"
   perClientBandwidthLimitUp: 0
   perClientBandwidthLimitDown: 0
   visible: true
   availableOnAllAps: true
-
+  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
 - name: "Corp-Guest"
   enabled: false
   authMode: "open"
