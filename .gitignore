@@ -74,6 +74,11 @@ Thumbs.db
 
 # Internal plans
 docs/plans/
+.cursor/
+skills/
+AGENTS.md
+agent.md
+agents.md
 
 # Pre-commit
 .pre-commit-config.yaml.bak
