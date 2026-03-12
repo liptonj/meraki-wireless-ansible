@@ -113,7 +113,7 @@ env:
 
 # Prevent concurrent deploys to the same environment
 concurrency:
-  group: deploy-ssids-${{ env.INPUT_ENVIRONMENT }}
+  group: deploy-ssids-${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
   cancel-in-progress: false
 
 jobs:
@@ -122,7 +122,8 @@ jobs:
   configure-ssid:
     name: Update group_vars with new SSID config
     runs-on: ubuntu-latest
-    if: env.INPUT_SSID_NAME != ''
+    if: >-
+      (github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '') != ''
 
     steps:
       - name: Checkout repository
@@ -195,7 +196,7 @@ jobs:
     # Only run when target_networks is specified
     if: >-
       always()
-      && env.INPUT_TARGET_NETWORKS != ''
+      && (github.event.inputs.target_networks || github.event.client_payload.target_networks || '') != ''
       && (needs.configure-ssid.result == 'success' || needs.configure-ssid.result == 'skipped')
 
     steps:
@@ -334,7 +335,10 @@ jobs:
     name: Post-Deploy Compliance Check
     runs-on: ubuntu-latest
     needs: [deploy]
-    if: env.INPUT_DRY_RUN != 'true' && needs.deploy.result == 'success'
+    if: >-
+      (github.event.inputs.dry_run || (github.event.client_payload.dry_run != null
+      && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && needs.deploy.result == 'success'
 
     steps:
       - name: Checkout repository
