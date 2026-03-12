@@ -135,6 +135,8 @@ jobs:
           RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
           WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
           WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
+          INPUT_TARGET_NETWORKS: ${{ github.event.client_payload.target_networks || '' }}
+          INPUT_SCOPE_SSID: ${{ github.event.client_payload.scope_ssid || '' }}
         run: |
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
@@ -142,10 +144,24 @@ jobs:
 
               INVENTORY="inventory/production.yml"
 
+              EXTRA_ARGS=()
+              if [ "$(basename "$playbook")" = "configure_network.yml" ]; then
+                if [ -z "$INPUT_TARGET_NETWORKS" ]; then
+                  echo "Skipping configure_network.yml: repository_dispatch target_networks not provided"
+                  continue
+                fi
+                EXTRA_ARGS+=("-e" "target_networks=${INPUT_TARGET_NETWORKS}")
+
+                if [ -n "$INPUT_SCOPE_SSID" ]; then
+                  EXTRA_ARGS+=("-e" "scope_ssid=${INPUT_SCOPE_SSID}")
+                fi
+              fi
+
               ansible-playbook \
                 --check \
                 --diff \
                 --inventory "$INVENTORY" \
+                "${EXTRA_ARGS[@]}" \
                 "$playbook" || {
                   echo "Dry-run failed for $(basename $playbook)"
                   exit 1
