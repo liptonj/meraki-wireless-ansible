@@ -245,12 +245,11 @@
           body:
             - type: "TextBlock"
               text: "Wireless Compliance Violation"
-              weight: "Bolder"
-              size: "Large"
-              color: "Attention"
+              weight: "bolder"
+              size: "medium"
             - type: "TextBlock"
               text: "{{ ansible_date_time.iso8601 }}"
-              size: "Small"
+              size: "small"
               isSubtle: true
             - type: "TextBlock"
               text: >-
@@ -260,16 +259,16 @@
               wrap: true
             - type: "TextBlock"
               text: "Details"
-              weight: "Bolder"
-              spacing: "Small"
+              weight: "bolder"
+              spacing: "small"
             - type: "TextBlock"
               text: "{{ webex_card_details_text }}"
               wrap: true
-              size: "Small"
+              size: "small"
             - type: "TextBlock"
               text: "Remediation: ansible-playbook playbooks/ssid_management.yml"
               wrap: true
-              size: "Small"
+              size: "small"
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -291,7 +290,7 @@
             Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card }}"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
@@ -318,7 +317,7 @@
             Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card }}"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
