@@ -31,6 +31,7 @@
         groups: meraki_networks
         meraki_network_id: "{{ net.id }}"
         meraki_network_name_resolved: "{{ net.name }}"
+        meraki_network_dashboard_url: "{{ net.url | default('') }}"
         meraki_org_id: "{{ meraki_org_id }}"
         meraki_org_name: "{{ meraki_org_name }}"
         meraki_api_key: "{{ meraki_api_key }}"

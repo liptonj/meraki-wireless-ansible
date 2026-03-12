@@ -27,6 +27,11 @@
 ### {{ network.network_name }}
 
 **Network ID:** `{{ network.network_id }}`  
+{% if network.network_wireless_ssids_url is defined and network.network_wireless_ssids_url | length > 0 %}
+**Dashboard (Wireless SSIDs):** [Open]({{ network.network_wireless_ssids_url }})  
+{% elif network.network_dashboard_url is defined and network.network_dashboard_url | length > 0 %}
+**Dashboard (Network):** [Open]({{ network.network_dashboard_url }})  
+{% endif %}
 **Compliance Status:** {% if network.compliant %}✅ **COMPLIANT**{% else %}⚠️ **NON-COMPLIANT**{% endif %}  
 **Drift Detected:** {% if network.drift_detected %}⚠️ **YES** ({{ network.drift_count }} SSID{{ 's' if network.drift_count != 1 else '' }}){% else %}✅ **NO**{% endif %}
 

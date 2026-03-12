@@ -113,6 +113,11 @@
           {% else %}
           {% for network in non_compliant_networks %}
           - **Network:** `{{ network.network_name }}` (`{{ network.network_id }}`)
+          {% if network.network_wireless_ssids_url | default('') | length > 0 %}
+            - Dashboard: [Open Wireless SSID Settings]({{ network.network_wireless_ssids_url }})
+          {% elif network.network_dashboard_url | default('') | length > 0 %}
+            - Dashboard: [Open Network Dashboard]({{ network.network_dashboard_url }})
+          {% endif %}
           {% set drifted_ssids = network.ssids
              | default([])
              | selectattr('drift_detected', 'equalto', true)
@@ -214,6 +219,11 @@
           {% else %}
           {% for network in non_compliant_networks %}
           Network: {{ network.network_name }} ({{ network.network_id }})
+          {% if network.network_wireless_ssids_url | default('') | length > 0 %}
+          Dashboard: {{ network.network_wireless_ssids_url }}
+          {% elif network.network_dashboard_url | default('') | length > 0 %}
+          Dashboard: {{ network.network_dashboard_url }}
+          {% endif %}
           {% set critical_violations = network.security_violations
              | default([])
              | selectattr('severity', 'equalto', 'critical')
