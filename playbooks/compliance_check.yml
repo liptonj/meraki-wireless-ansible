@@ -104,25 +104,41 @@
     - name: Build violation summary for alerts
       ansible.builtin.set_fact:
         violation_summary: |
-          Meraki Wireless Compliance Violation Detected
-
-          Networks Checked: {{ compliance_results.networks_checked | default(0) }}
-          Networks Non-Compliant: {{ compliance_results.networks_non_compliant | default(0) }}
-          SSIDs Non-Compliant: {{ compliance_results.ssids_non_compliant | default(0) }}
-
-          {% for network in compliance_results.network_details | default([]) %}
-          {% if not network.compliant %}
-          Network: {{ network.network_name }} ({{ network.network_id }})
-          {% for ssid in network.ssids %}
-          {% if ssid.drift_detected %}
-            SSID "{{ ssid.name }}":
+          {% set non_compliant_networks = compliance_results.network_details
+             | default([])
+             | selectattr('compliant', 'equalto', false)
+             | list %}
+          {% if non_compliant_networks | length == 0 %}
+          - No non-compliant network details were captured.
+          {% else %}
+          {% for network in non_compliant_networks %}
+          - **Network:** `{{ network.network_name }}` (`{{ network.network_id }}`)
+          {% set drifted_ssids = network.ssids
+             | default([])
+             | selectattr('drift_detected', 'equalto', true)
+             | list %}
+          {% set security_violations = network.security_violations | default([]) %}
+          {% if drifted_ssids | length > 0 %}
+            - SSID Drift:
+          {% for ssid in drifted_ssids %}
+              - `{{ ssid.name }}`:
           {% for field, values in ssid.differences.items() %}
-              {{ field }}: {{ values.current }} -> {{ values.desired }}
+                - `{{ field }}`: `{{ values.current }}` -> `{{ values.desired }}`
           {% endfor %}
+          {% endfor %}
+          {% endif %}
+          {% if security_violations | length > 0 %}
+            - Security Violations:
+          {% for violation in security_violations %}
+              - [{{ violation.severity | upper }}] {{ violation.message }}
+                (`{{ violation.current_value }}` -> `{{ violation.expected }}`)
+          {% endfor %}
+          {% endif %}
+          {% if (drifted_ssids | length == 0) and (security_violations | length == 0) %}
+            - Network is non-compliant, but no per-item details were collected.
           {% endif %}
           {% endfor %}
           {% endif %}
-          {% endfor %}
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -155,6 +171,10 @@
             | Networks Checked | {{ compliance_results.networks_checked }} |
             | Networks Non-Compliant | {{ compliance_results.networks_non_compliant }} |
             | SSIDs Non-Compliant | {{ compliance_results.ssids_non_compliant }} |
+
+            ### Non-Compliant Networks and Findings
+
+            {{ violation_summary }}
 
             ### Remediation
 
@@ -197,21 +217,7 @@
 
             **{{ compliance_results.networks_non_compliant }} network(s)** and **{{ compliance_results.ssids_non_compliant }} SSID(s)** are non-compliant.
 
-            {% for network in compliance_results.network_details | default([]) %}
-            {% if not network.compliant %}
-            **Network: {{ network.network_name }}**
-            {% for ssid in network.ssids %}
-            {% if ssid.drift_detected %}
-            - SSID `{{ ssid.name }}`:
-              {% for field, values in ssid.differences.items() %}
-              `{{ field }}`: `{{ values.current }}` -> `{{ values.desired }}`
-              {% if not loop.last %}, {% endif %}
-              {% endfor %}
-
-            {% endif %}
-            {% endfor %}
-            {% endif %}
-            {% endfor %}
+            {{ violation_summary }}
 
             **Remediation:** `ansible-playbook playbooks/ssid_management.yml`
         status_code: 200
@@ -272,11 +278,15 @@
         body_format: json
         body:
           toPersonEmail: "{{ compliance_webex_alert_email }}"
-          markdown: >-
-            **Wireless Compliance Violation** - {{ ansible_date_time.iso8601 }} -
-            {{ compliance_results.networks_non_compliant }} network(s) and
-            {{ compliance_results.ssids_non_compliant }} SSID(s) non-compliant.
-            Run `ansible-playbook playbooks/ssid_management.yml` to remediate.
+          markdown: |
+            ## Wireless Compliance Violation
+            **Date:** {{ ansible_date_time.iso8601 }}
+
+            **{{ compliance_results.networks_non_compliant }} network(s)** and **{{ compliance_results.ssids_non_compliant }} SSID(s)** are non-compliant.
+
+            {{ violation_summary }}
+
+            **Remediation:** `ansible-playbook playbooks/ssid_management.yml`
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
               content:
