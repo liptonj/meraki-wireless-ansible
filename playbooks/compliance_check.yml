@@ -204,31 +204,29 @@
 
     - name: Build Webex card violation details
       ansible.builtin.set_fact:
-        webex_card_violation_items:
-          - type: TextBlock
-            text: >-
-              Non-compliant networks:
-              {{ compliance_results.network_details
-                 | default([])
-                 | selectattr('compliant', 'equalto', false)
-                 | map(attribute='network_name')
-                 | list
-                 | join(', ') }}
-            wrap: true
-            size: Small
-          - type: TextBlock
-            text: >-
-              Drifted SSIDs:
-              {{ compliance_results.network_details
-                 | default([])
-                 | map(attribute='ssids')
-                 | flatten
-                 | selectattr('drift_detected', 'equalto', true)
-                 | map(attribute='name')
-                 | list
-                 | join(', ') }}
-            wrap: true
-            size: Small
+        webex_card_details_text: |
+          {% set non_compliant_networks = compliance_results.network_details
+             | default([])
+             | selectattr('compliant', 'equalto', false)
+             | list %}
+          {% if non_compliant_networks | length == 0 %}
+          No non-compliant network details were captured.
+          {% else %}
+          {% for network in non_compliant_networks %}
+          Network: {{ network.network_name }} ({{ network.network_id }})
+          {% set critical_violations = network.security_violations
+             | default([])
+             | selectattr('severity', 'equalto', 'critical')
+             | list %}
+          {% if critical_violations | length > 0 %}
+          {% for violation in critical_violations %}
+          - {{ violation.message }} ({{ violation.current_value }} -> {{ violation.expected }})
+          {% endfor %}
+          {% else %}
+          - No critical SSID violations listed.
+          {% endif %}
+          {% endfor %}
+          {% endif %}
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -243,7 +241,7 @@
         webex_compliance_card:
           "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
           type: "AdaptiveCard"
-          version: "1.2"
+          version: "1.0"
           body:
             - type: "TextBlock"
               text: "Wireless Compliance Violation"
@@ -252,30 +250,24 @@
               color: "Attention"
             - type: "TextBlock"
               text: "{{ ansible_date_time.iso8601 }}"
+              size: "Small"
               isSubtle: true
-              spacing: "None"
-            - type: "FactSet"
-              facts:
-                - title: "Networks Checked"
-                  value: "{{ compliance_results.networks_checked | default(0) }}"
-                - title: "Networks Non-Compliant"
-                  value: "{{ compliance_results.networks_non_compliant | default(0) }}"
-                - title: "SSIDs Non-Compliant"
-                  value: "{{ compliance_results.ssids_non_compliant | default(0) }}"
             - type: "TextBlock"
-              text: "Violation Details"
+              text: >-
+                {{ compliance_results.networks_non_compliant | default(0) }} network(s)
+                and {{ compliance_results.ssids_non_compliant | default(0) }} SSID(s)
+                are non-compliant.
+              wrap: true
+            - type: "TextBlock"
+              text: "Details"
               weight: "Bolder"
-              separator: true
-              spacing: "Medium"
-            - type: "Container"
-              items: "{{ webex_card_violation_items }}"
+              spacing: "Small"
             - type: "TextBlock"
-              text: "Remediation"
-              weight: "Bolder"
-              separator: true
-              spacing: "Medium"
+              text: "{{ webex_card_details_text }}"
+              wrap: true
+              size: "Small"
             - type: "TextBlock"
-              text: "`ansible-playbook playbooks/ssid_management.yml`"
+              text: "Remediation: ansible-playbook playbooks/ssid_management.yml"
               wrap: true
               size: "Small"
       when:
@@ -299,7 +291,7 @@
             Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card | to_json | from_json }}"
+              content: "{{ webex_compliance_card }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
@@ -326,7 +318,7 @@
             Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card | to_json | from_json }}"
+              content: "{{ webex_compliance_card }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
