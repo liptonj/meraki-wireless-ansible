@@ -215,7 +215,7 @@
                  | list
                  | join(', ') }}
             wrap: true
-            size: small
+            size: Small
           - type: TextBlock
             text: >-
               Drifted SSIDs:
@@ -228,7 +228,7 @@
                  | list
                  | join(', ') }}
             wrap: true
-            size: small
+            size: Small
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -243,88 +243,41 @@
         webex_compliance_card:
           "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
           type: "AdaptiveCard"
-          version: "1.3"
+          version: "1.2"
           body:
-            - type: "ColumnSet"
-              columns:
-                - type: "Column"
-                  width: "auto"
-                  items:
-                    - type: "TextBlock"
-                      text: "⚠️"
-                      size: "large"
-                - type: "Column"
-                  width: "stretch"
-                  verticalContentAlignment: "center"
-                  items:
-                    - type: "TextBlock"
-                      text: "Wireless Compliance Violation"
-                      weight: "bolder"
-                      size: "large"
-                      color: "attention"
+            - type: "TextBlock"
+              text: "Wireless Compliance Violation"
+              weight: "Bolder"
+              size: "Large"
+              color: "Attention"
             - type: "TextBlock"
               text: "{{ ansible_date_time.iso8601 }}"
               isSubtle: true
-              spacing: "none"
-            - type: "ColumnSet"
-              separator: true
-              spacing: "medium"
-              columns:
-                - type: "Column"
-                  width: "stretch"
-                  items:
-                    - type: "TextBlock"
-                      text: "Networks Checked"
-                      size: "small"
-                      isSubtle: true
-                    - type: "TextBlock"
-                      text: "{{ compliance_results.networks_checked | default(0) }}"
-                      weight: "bolder"
-                      size: "extraLarge"
-                      spacing: "none"
-                - type: "Column"
-                  width: "stretch"
-                  items:
-                    - type: "TextBlock"
-                      text: "Non-Compliant"
-                      size: "small"
-                      isSubtle: true
-                    - type: "TextBlock"
-                      text: "{{ compliance_results.networks_non_compliant | default(0) }}"
-                      weight: "bolder"
-                      size: "extraLarge"
-                      color: "attention"
-                      spacing: "none"
-                - type: "Column"
-                  width: "stretch"
-                  items:
-                    - type: "TextBlock"
-                      text: "SSIDs Non-Compliant"
-                      size: "small"
-                      isSubtle: true
-                    - type: "TextBlock"
-                      text: "{{ compliance_results.ssids_non_compliant | default(0) }}"
-                      weight: "bolder"
-                      size: "extraLarge"
-                      color: "attention"
-                      spacing: "none"
+              spacing: "None"
+            - type: "FactSet"
+              facts:
+                - title: "Networks Checked"
+                  value: "{{ compliance_results.networks_checked | default(0) }}"
+                - title: "Networks Non-Compliant"
+                  value: "{{ compliance_results.networks_non_compliant | default(0) }}"
+                - title: "SSIDs Non-Compliant"
+                  value: "{{ compliance_results.ssids_non_compliant | default(0) }}"
             - type: "TextBlock"
               text: "Violation Details"
-              weight: "bolder"
+              weight: "Bolder"
               separator: true
-              spacing: "medium"
+              spacing: "Medium"
             - type: "Container"
               items: "{{ webex_card_violation_items }}"
             - type: "TextBlock"
               text: "Remediation"
-              weight: "bolder"
+              weight: "Bolder"
               separator: true
-              spacing: "medium"
+              spacing: "Medium"
             - type: "TextBlock"
               text: "`ansible-playbook playbooks/ssid_management.yml`"
               wrap: true
-              fontType: "monospace"
-              size: "small"
+              size: "Small"
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -343,10 +296,10 @@
         body_format: json
         body:
           markdown: |
-            Wireless Compliance Violation detected.
+            Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card }}"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
@@ -370,17 +323,10 @@
         body:
           toPersonEmail: "{{ compliance_webex_alert_email }}"
           markdown: |
-            ## Wireless Compliance Violation
-            **Date:** {{ ansible_date_time.iso8601 }}
-
-            **{{ compliance_results.networks_non_compliant }} network(s)** and **{{ compliance_results.ssids_non_compliant }} SSID(s)** are non-compliant.
-
-            {{ violation_summary }}
-
-            **Remediation:** `ansible-playbook playbooks/ssid_management.yml`
+            Wireless Compliance Violation detected. See adaptive card for details.
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
-              content: "{{ webex_compliance_card }}"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
       delegate_to: localhost
