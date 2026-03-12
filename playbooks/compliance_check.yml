@@ -236,30 +236,30 @@
              | selectattr('compliant', 'equalto', false)
              | list %}
           {% if non_compliant_networks | length == 0 %}
-          No non-compliant networks found.
+          ✅ No non-compliant networks found.
           {% else %}
           {% for network in non_compliant_networks %}
           {{ network.network_name }}:
-          - Network compliance: {{ 'PASS' if network.compliant else 'FAIL' }}
-          - SSID drift check: {{ 'PASS' if (network.drift_count | default(0) | int) == 0 else 'FAIL (' ~ (network.drift_count | default(0) | string) ~ ' drifted SSID(s))' }}
+          - Network compliance: {{ '✅ PASS' if network.compliant else '❌ FAIL' }}
+          - SSID drift check: {{ '✅ PASS' if (network.drift_count | default(0) | int) == 0 else '❌ FAIL (' ~ (network.drift_count | default(0) | string) ~ ' drifted SSID(s))' }}
           {% set no_open_auth_failures = network.security_violations
              | default([])
              | selectattr('rule', 'equalto', 'no_open_auth')
              | list
              | length %}
-          - Open authentication check: {{ 'PASS' if no_open_auth_failures == 0 else 'FAIL (' ~ (no_open_auth_failures | string) ~ ')' }}
+          - Open authentication check: {{ '✅ PASS' if no_open_auth_failures == 0 else '❌ FAIL (' ~ (no_open_auth_failures | string) ~ ')' }}
           {% set minimum_encryption_failures = network.security_violations
              | default([])
              | selectattr('rule', 'equalto', 'minimum_encryption')
              | list
              | length %}
-          - Minimum encryption check: {{ 'PASS' if minimum_encryption_failures == 0 else 'FAIL (' ~ (minimum_encryption_failures | string) ~ ')' }}
+          - Minimum encryption check: {{ '✅ PASS' if minimum_encryption_failures == 0 else '❌ FAIL (' ~ (minimum_encryption_failures | string) ~ ')' }}
           {% set guest_bandwidth_failures = network.security_violations
              | default([])
              | selectattr('rule', 'equalto', 'guest_bandwidth_limits')
              | list
              | length %}
-          - Guest bandwidth check: {{ 'PASS' if guest_bandwidth_failures == 0 else 'FAIL (' ~ (guest_bandwidth_failures | string) ~ ')' }}
+          - Guest bandwidth check: {{ '✅ PASS' if guest_bandwidth_failures == 0 else '❌ FAIL (' ~ (guest_bandwidth_failures | string) ~ ')' }}
           {% endfor %}
           {% endif %}
         webex_card_failed_text: |
@@ -281,10 +281,10 @@
              | list %}
           {% if critical_violations | length > 0 %}
           {% for violation in critical_violations %}
-          - {{ violation.message }} ({{ violation.current_value }} -> {{ violation.expected }})
+          - 🔴 {{ violation.message }} ({{ violation.current_value }} -> {{ violation.expected }})
           {% endfor %}
           {% else %}
-          - No critical SSID violations listed.
+          - ✅ No critical SSID violations listed.
           {% endif %}
           {% endfor %}
           {% endif %}
@@ -319,7 +319,7 @@
                 are non-compliant.
               wrap: true
             - type: "TextBlock"
-              text: "Details"
+              text: "Checks"
               weight: "bolder"
               spacing: "small"
             - type: "TextBlock"
