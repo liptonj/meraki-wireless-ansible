@@ -88,29 +88,6 @@
     - compliance
     - security
 
-- name: Check disabled SSIDs are not broadcasting
-  ansible.builtin.set_fact:
-    security_violations: >-
-      {{ security_violations + [{
-        'ssid_name': item.name | default('Unknown'),
-        'ssid_number': item.number | default(0),
-        'rule': 'disabled_ssid_broadcast',
-        'severity': 'warning',
-        'message': 'Disabled SSID "' + item.name | default('Unknown') + '" is still broadcasting',
-        'current_value': 'visible: ' + (item.visible | default(false) | string),
-        'expected': 'visible: false when SSID is disabled'
-      }] }}
-  loop: "{{ current_ssids.meraki_response | default([]) }}"
-  loop_control:
-    label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
-  when:
-    - security_baseline_rules.disabled_ssid_broadcast.enabled | default(true)
-    - not (item.enabled | default(false) | bool)
-    - item.visible | default(false) | bool
-  tags:
-    - compliance
-    - security
-
 - name: Display security baseline results
   ansible.builtin.debug:
     msg: |
@@ -136,6 +113,35 @@
           'security_critical_count': security_violations | selectattr('severity', 'equalto', 'critical') | list | length,
           'security_warning_count': security_violations | selectattr('severity', 'equalto', 'warning') | list | length,
           'security_passed': (security_violations | length == 0),
+          'non_compliant_ssid_names': (
+            (
+              network_compliance.non_compliant_ssid_names | default([])
+            )
+            +
+            (
+              security_violations
+              | selectattr('severity', 'equalto', 'critical')
+              | map(attribute='ssid_name')
+              | list
+            )
+            | unique
+          ),
+          'ssid_non_compliant_count': (
+            (
+              (
+                network_compliance.non_compliant_ssid_names | default([])
+              )
+              +
+              (
+                security_violations
+                | selectattr('severity', 'equalto', 'critical')
+                | map(attribute='ssid_name')
+                | list
+              )
+            )
+            | unique
+            | length
+          ),
           'compliant': network_compliance.compliant and (
             security_violations | selectattr('severity', 'equalto', 'critical') | list | length == 0
           )

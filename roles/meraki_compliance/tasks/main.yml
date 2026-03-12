@@ -48,6 +48,8 @@
       security_critical_count: 0
       security_warning_count: 0
       security_passed: true
+      non_compliant_ssid_names: []
+      ssid_non_compliant_count: 0
   tags:
     - compliance
     - compare
@@ -163,6 +165,33 @@
         })
       }}
   when: network_compliance.ssids is defined
+  tags:
+    - compliance
+
+- name: Initialize per-network non-compliant SSID counters from drift
+  ansible.builtin.set_fact:
+    network_compliance: >-
+      {{
+        network_compliance | combine({
+          'non_compliant_ssid_names': (
+            network_compliance.ssids
+            | default([])
+            | selectattr('drift_detected', 'equalto', true)
+            | map(attribute='name')
+            | list
+            | unique
+          ),
+          'ssid_non_compliant_count': (
+            network_compliance.ssids
+            | default([])
+            | selectattr('drift_detected', 'equalto', true)
+            | map(attribute='name')
+            | list
+            | unique
+            | length
+          )
+        })
+      }}
   tags:
     - compliance
 

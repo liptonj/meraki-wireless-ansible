@@ -52,7 +52,3 @@ security_baseline_rules:
     severity: "warning"
     guest_ssid_pattern: "(?i)guest"
     description: "Guest SSIDs must have bandwidth limits configured"
-  disabled_ssid_broadcast:
-    enabled: true
-    severity: "warning"
-    description: "Disabled SSIDs should not be broadcasting"

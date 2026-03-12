@@ -54,7 +54,7 @@
           networks_non_compliant: "{{ compliance_network_details | selectattr('compliant', 'equalto', false) | list | length }}"
           ssids_checked: "{{ compliance_network_details | map(attribute='ssids') | flatten | list | length }}"
           ssids_compliant: "{{ compliance_network_details | map(attribute='ssids') | flatten | selectattr('compliant', 'equalto', true) | list | length }}"
-          ssids_non_compliant: "{{ compliance_network_details | map(attribute='ssids') | flatten | selectattr('compliant', 'equalto', false) | list | length }}"
+          ssids_non_compliant: "{{ compliance_network_details | map(attribute='ssid_non_compliant_count') | map('int') | sum }}"
           security_critical_count: "{{ compliance_network_details | map(attribute='security_critical_count') | map('int') | sum }}"
           security_warning_count: "{{ compliance_network_details | map(attribute='security_warning_count') | map('int') | sum }}"
           security_passed: "{{ (compliance_network_details | map(attribute='security_critical_count') | map('int') | sum) == 0 }}"
