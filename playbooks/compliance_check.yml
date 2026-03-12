@@ -209,6 +209,41 @@
 
     - name: Build Webex card violation details
       ansible.builtin.set_fact:
+        webex_primary_network_name: >-
+          {{
+            compliance_results.network_details
+            | default([])
+            | selectattr('compliant', 'equalto', false)
+            | map(attribute='network_name')
+            | list
+            | first
+            | default('Meraki Dashboard')
+          }}
+        webex_primary_dashboard_url: >-
+          {{
+            (
+              compliance_results.network_details
+              | default([])
+              | selectattr('compliant', 'equalto', false)
+              | map(attribute='network_wireless_ssids_url')
+              | reject('equalto', '')
+              | list
+              | first
+            )
+            | default(
+                (
+                  compliance_results.network_details
+                  | default([])
+                  | selectattr('compliant', 'equalto', false)
+                  | map(attribute='network_dashboard_url')
+                  | reject('equalto', '')
+                  | list
+                  | first
+                ),
+                true
+              )
+            | default('https://dashboard.meraki.com', true)
+          }}
         webex_card_details_text: |
           {% set non_compliant_networks = compliance_results.network_details
              | default([])
@@ -279,6 +314,10 @@
               text: "Remediation: ansible-playbook playbooks/ssid_management.yml"
               wrap: true
               size: "small"
+          actions:
+            - type: "Action.OpenUrl"
+              title: "Open {{ webex_primary_network_name }} SSIDs"
+              url: "{{ webex_primary_dashboard_url }}"
       when:
         - compliance_results is defined
         - compliance_failed | default(false) | bool
@@ -298,6 +337,7 @@
         body:
           markdown: |
             Wireless Compliance Violation detected. See adaptive card for details.
+            Open dashboard: [{{ webex_primary_network_name }} SSIDs]({{ webex_primary_dashboard_url }})
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
               content: "{{ webex_compliance_card | to_json | from_json }}"
@@ -325,6 +365,7 @@
           toPersonEmail: "{{ compliance_webex_alert_email }}"
           markdown: |
             Wireless Compliance Violation detected. See adaptive card for details.
+            Open dashboard: [{{ webex_primary_network_name }} SSIDs]({{ webex_primary_dashboard_url }})
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
               content: "{{ webex_compliance_card | to_json | from_json }}"
