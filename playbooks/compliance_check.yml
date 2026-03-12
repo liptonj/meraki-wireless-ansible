@@ -113,9 +113,7 @@
           {% else %}
           {% for network in non_compliant_networks %}
           - **Network:** `{{ network.network_name }}` (`{{ network.network_id }}`)
-          {% if network.network_wireless_ssids_url | default('') | length > 0 %}
-            - Dashboard: [Open Wireless SSID Settings]({{ network.network_wireless_ssids_url }})
-          {% elif network.network_dashboard_url | default('') | length > 0 %}
+          {% if network.network_dashboard_url | default('') | length > 0 %}
             - Dashboard: [Open Network Dashboard]({{ network.network_dashboard_url }})
           {% endif %}
           {% set drifted_ssids = network.ssids
@@ -225,23 +223,11 @@
               compliance_results.network_details
               | default([])
               | selectattr('compliant', 'equalto', false)
-              | map(attribute='network_wireless_ssids_url')
+              | map(attribute='network_dashboard_url')
               | reject('equalto', '')
               | list
               | first
             )
-            | default(
-                (
-                  compliance_results.network_details
-                  | default([])
-                  | selectattr('compliant', 'equalto', false)
-                  | map(attribute='network_dashboard_url')
-                  | reject('equalto', '')
-                  | list
-                  | first
-                ),
-                true
-              )
             | default('https://dashboard.meraki.com', true)
           }}
         webex_card_details_text: |
@@ -254,9 +240,7 @@
           {% else %}
           {% for network in non_compliant_networks %}
           Network: {{ network.network_name }} ({{ network.network_id }})
-          {% if network.network_wireless_ssids_url | default('') | length > 0 %}
-          Dashboard: {{ network.network_wireless_ssids_url }}
-          {% elif network.network_dashboard_url | default('') | length > 0 %}
+          {% if network.network_dashboard_url | default('') | length > 0 %}
           Dashboard: {{ network.network_dashboard_url }}
           {% endif %}
           {% set critical_violations = network.security_violations
@@ -316,7 +300,7 @@
               size: "small"
           actions:
             - type: "Action.OpenUrl"
-              title: "Open {{ webex_primary_network_name }} SSIDs"
+              title: "Open {{ webex_primary_network_name }} Dashboard"
               url: "{{ webex_primary_dashboard_url }}"
       when:
         - compliance_results is defined
@@ -337,7 +321,7 @@
         body:
           markdown: |
             Wireless Compliance Violation detected. See adaptive card for details.
-            Open dashboard: [{{ webex_primary_network_name }} SSIDs]({{ webex_primary_dashboard_url }})
+            Open dashboard URL: {{ webex_primary_dashboard_url }}
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
               content: "{{ webex_compliance_card | to_json | from_json }}"
@@ -365,7 +349,7 @@
           toPersonEmail: "{{ compliance_webex_alert_email }}"
           markdown: |
             Wireless Compliance Violation detected. See adaptive card for details.
-            Open dashboard: [{{ webex_primary_network_name }} SSIDs]({{ webex_primary_dashboard_url }})
+            Open dashboard URL: {{ webex_primary_dashboard_url }}
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
               content: "{{ webex_compliance_card | to_json | from_json }}"

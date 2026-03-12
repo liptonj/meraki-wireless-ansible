@@ -41,13 +41,7 @@
       network_name: "{{ inventory_hostname }}"
       network_id: "{{ current_network_id }}"
       network_dashboard_url: "{{ meraki_network_dashboard_url | default('') }}"
-      network_wireless_ssids_url: >-
-        {{
-          (meraki_network_dashboard_url
-          | regex_replace('/manage/.*$', '/manage/configure/wireless/ssids'))
-          if (meraki_network_dashboard_url | default('') | length > 0)
-          else ''
-        }}
+      network_wireless_ssids_url: "{{ meraki_network_dashboard_url | default('') }}"
       compliant: true
       ssids: []
       drift_detected: false
