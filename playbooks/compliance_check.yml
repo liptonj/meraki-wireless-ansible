@@ -4,18 +4,20 @@
 #
 # Usage:
 #   ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml
-#   ansible-playbook playbooks/compliance_check.yml --check --diff
+#   ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --check --diff
 
 - name: Discover networks
   ansible.builtin.import_playbook: discover.yml
 
 - name: Run Compliance Checks on Each Network
   hosts: meraki_networks
+  serial: 1
   gather_facts: true
 
   vars:
     compliance_report_dir: "{{ playbook_dir }}/../reports"
     compliance_report_filename: "compliance_report_{{ ansible_date_time.epoch }}.md"
+    compliance_aggregator_host: "{{ ansible_play_hosts_all | last | default('') }}"
 
   pre_tasks:
     - name: Ensure reports directory exists
@@ -24,7 +26,7 @@
         state: directory
         mode: '0755'
       delegate_to: localhost
-      run_once: true
+      when: inventory_hostname == compliance_aggregator_host
       tags: always
 
   roles:
@@ -43,7 +45,7 @@
             | map(attribute='network_compliance')
             | list
           }}
-      run_once: true
+      when: inventory_hostname == compliance_aggregator_host
       tags: always
 
     - name: Aggregate compliance results across all discovered networks
@@ -61,7 +63,7 @@
           network_details: "{{ compliance_network_details }}"
           timestamp: "{{ ansible_date_time.iso8601 }}"
           playbook_mode: "{{ 'CHECK MODE (DRY-RUN)' if ansible_check_mode else 'LIVE MODE' }}"
-      run_once: true
+      when: inventory_hostname == compliance_aggregator_host
       tags: always
 
     - name: Generate compliance report
@@ -72,7 +74,7 @@
       vars:
         compliance_data: "{{ compliance_results }}"
       delegate_to: localhost
-      run_once: true
+      when: inventory_hostname == compliance_aggregator_host
       tags:
         - compliance
         - reporting
@@ -90,15 +92,17 @@
           SSIDs Non-Compliant: {{ compliance_results.ssids_non_compliant | default(0) }}
 
           Report saved to: {{ compliance_report_dir }}/{{ compliance_report_filename }}
-      when: compliance_results is defined
-      run_once: true
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
       tags: always
 
     - name: Set compliance failure flag
       ansible.builtin.set_fact:
         compliance_failed: "{{ (compliance_results.networks_non_compliant | default(0) | int) > 0 }}"
-      when: compliance_results is defined
-      run_once: true
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
       tags: always
 
     - name: Build violation summary for alerts
@@ -143,9 +147,9 @@
           {% endfor %}
           {% endif %}
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
         - compliance_failed | default(false) | bool
-      run_once: true
       tags: always
 
     - name: Create GitHub Issue for compliance violation
@@ -194,9 +198,9 @@
             - automated
         status_code: [201]
       delegate_to: localhost
-      run_once: true
       no_log: true
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_failed | default(false) | bool
         - compliance_github_alert_enabled | default(false) | bool
         - compliance_github_repo | default('') | length > 0
@@ -289,9 +293,9 @@
           {% endfor %}
           {% endif %}
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
         - compliance_failed | default(false) | bool
-      run_once: true
       tags:
         - alerting
         - webex
@@ -335,7 +339,7 @@
               wrap: true
               size: "small"
             - type: "TextBlock"
-              text: "Remediation: ansible-playbook playbooks/ssid_management.yml"
+              text: "Remediation: ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml"
               wrap: true
               size: "small"
           actions:
@@ -343,9 +347,9 @@
               title: "Open {{ webex_primary_network_name }} Dashboard"
               url: "{{ webex_primary_dashboard_url }}"
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
         - compliance_failed | default(false) | bool
-      run_once: true
       tags:
         - alerting
         - webex
@@ -368,8 +372,8 @@
         status_code: 200
         validate_certs: true
       delegate_to: localhost
-      run_once: true
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_failed | default(false) | bool
         - compliance_webex_alert_enabled | default(false) | bool
         - compliance_webex_webhook_url | default('') | length > 0
@@ -396,9 +400,9 @@
         status_code: 200
         validate_certs: true
       delegate_to: localhost
-      run_once: true
       no_log: true
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_failed | default(false) | bool
         - compliance_webex_bot_enabled | default(false) | bool
         - compliance_webex_bot_token | default('') | length > 0
@@ -412,7 +416,7 @@
       ansible.builtin.debug:
         msg: "All networks are compliant. No alerts triggered."
       when:
+        - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
         - not (compliance_failed | default(false) | bool)
-      run_once: true
       tags: always

@@ -4,8 +4,23 @@
     networkId: "{{ meraki_network_id }}"
     meraki_api_key: "{{ meraki_api_key }}"
   register: current_ssids
-  failed_when: false
+  retries: "{{ meraki_compliance_api_retries }}"
+  delay: "{{ meraki_compliance_api_retry_delay }}"
+  until: current_ssids is not failed
   changed_when: false
+  tags:
+    - compliance
+    - gather
+
+- name: Validate Meraki SSID response payload exists
+  ansible.builtin.assert:
+    that:
+      - current_ssids.meraki_response is defined
+      - current_ssids.meraki_response is iterable
+    fail_msg: >-
+      Failed to retrieve SSID data for network {{ meraki_network_id | default(inventory_hostname) }}.
+      Ensure API connectivity and permissions are valid.
+    quiet: true
   tags:
     - compliance
     - gather
@@ -225,7 +240,7 @@
 - name: Run security baseline checks
   ansible.builtin.include_tasks: security_baseline.yml
   when:
-    - security_baseline_enabled | default(true) | bool
+    - meraki_compliance_security_baseline_enabled | default(true) | bool
     - current_ssids.meraki_response is defined
     - current_ssids.meraki_response | length > 0
   tags:

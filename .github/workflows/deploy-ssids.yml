@@ -99,6 +99,7 @@ permissions:
   issues: write
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   INPUT_ENVIRONMENT: ${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
   INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
   INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
@@ -127,12 +128,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -201,20 +202,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Pick up any changes committed by configure-ssid
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Cache Ansible Galaxy collections
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
@@ -229,6 +230,7 @@ jobs:
       - name: Update meraki_networks.yml for target networks
         run: |
           ansible-playbook playbooks/configure_network.yml \
+            -i inventory/production.yml \
             -e "target_networks=${{ env.INPUT_TARGET_NETWORKS }}" \
             -e "scope_ssid=${{ env.INPUT_SCOPE_SSID }}"
 
@@ -268,19 +270,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Pull the latest commit so we get any group_vars update from configure-ssid
           ref: ${{ github.ref_name }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Cache Ansible Galaxy collections
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
@@ -342,13 +344,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'

@@ -6,14 +6,15 @@ ANSIBLE_GALAXY  := venv/bin/ansible-galaxy
 PIP             := venv/bin/pip
 VAULT_PASS_FILE := .vault_pass
 
-.PHONY: help setup lint test smoke-test clean deploy-ssid-check compliance-check test-all vault-encrypt vault-decrypt vault-view
+.PHONY: help setup lint test test-templates smoke-test clean deploy-ssid-check compliance-check test-all vault-encrypt vault-decrypt vault-view
 
 help:
 	@echo "Meraki Wireless Ansible - Available Commands:"
 	@echo ""
 	@echo "  make setup         - Create Python venv and install all dependencies"
 	@echo "  make lint          - Run ansible-lint on playbooks and roles"
-	@echo "  make test          - Run Ansible syntax checks on all playbooks"
+	@echo "  make test          - Run syntax checks and Jinja2 template validation"
+	@echo "  make test-templates - Validate Jinja2 template syntax"
 	@echo "  make smoke-test    - Run validation tests against target environment"
 	@echo "  make clean         - Remove Python cache files and virtual environment"
 	@echo "  make vault-encrypt - Encrypt vault/secrets.yml"
@@ -53,9 +54,13 @@ test:
 	@if [ ! -f "$(ANSIBLE)" ]; then echo "Run 'make setup' first."; exit 1; fi
 	@for playbook in playbooks/*.yml; do \
 		echo "Checking: $$playbook"; \
-		$(ANSIBLE) --syntax-check "$$playbook" || exit 1; \
+		$(ANSIBLE) --syntax-check -i inventory/production.yml "$$playbook" || exit 1; \
 	done
+	@$(PYTHON) scripts/validate_jinja_templates.py
 	@echo "All syntax checks passed!"
+
+test-templates:
+	@$(PYTHON) scripts/validate_jinja_templates.py
 
 smoke-test:
 	@echo "Running smoke tests..."
@@ -97,15 +102,15 @@ vault-view:
 	@$(ANSIBLE_VAULT) view vault/secrets.yml --vault-password-file $(VAULT_PASS_FILE)
 
 deploy-ssid-check:
-	@$(ANSIBLE) --syntax-check playbooks/ssid_management.yml
+	@$(ANSIBLE) --syntax-check -i inventory/production.yml playbooks/ssid_management.yml
 
 compliance-check:
-	@$(ANSIBLE) --syntax-check playbooks/compliance_check.yml
+	@$(ANSIBLE) --syntax-check -i inventory/production.yml playbooks/compliance_check.yml
 
 test-all:
 	@echo "Checking all playbooks..."
 	@for playbook in playbooks/*.yml; do \
 		echo "Checking: $$playbook"; \
-		$(ANSIBLE) --syntax-check "$$playbook" || exit 1; \
+		$(ANSIBLE) --syntax-check -i inventory/production.yml "$$playbook" || exit 1; \
 	done
 	@echo "All playbooks passed syntax check"

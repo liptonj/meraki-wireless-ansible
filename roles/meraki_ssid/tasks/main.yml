@@ -31,26 +31,55 @@
     - ssid
     - gather
 
-- name: Find matching SSID slot for each desired SSID
+- name: Validate desired SSID names are unique
+  ansible.builtin.assert:
+    that:
+      - (meraki_ssid_configs | map(attribute='name') | list | unique | length) == (meraki_ssid_configs | length)
+    fail_msg: "meraki_ssid_configs contains duplicate SSID names. Each SSID name must be unique per run."
+    quiet: true
+  tags:
+    - ssid
+    - validate
+
+- name: Build SSID slot assignment plan
   ansible.builtin.set_fact:
     ssid_slot_map: >-
       {{
-        ssid_slot_map | default([]) + [{
-          'config': item,
-          'number': (current_ssids_result.meraki_response | default([])
-            | selectattr('name', 'equalto', item.name)
-            | map(attribute='number') | first
-            | default(
-              current_ssids_result.meraki_response | default([])
-              | selectattr('name', 'match', '^Unconfigured SSID')
-              | map(attribute='number') | first
-              | default(-1)
-            ))
-        }]
+        slot_plan.assignments
       }}
-  loop: "{{ meraki_ssid_configs }}"
-  loop_control:
-    label: "{{ item.name }}"
+  vars:
+    existing_ssids: "{{ current_ssids_result.meraki_response | default([]) }}"
+    available_unconfigured_slots: >-
+      {{
+        existing_ssids
+        | selectattr('name', 'match', '^Unconfigured SSID')
+        | map(attribute='number')
+        | list
+        | sort
+      }}
+    slot_plan: >-
+      {%- set ns = namespace(assignments=[], consumed_slots=[]) -%}
+      {%- for desired_ssid in meraki_ssid_configs -%}
+        {%- set existing_slot = (
+          existing_ssids
+          | selectattr('name', 'equalto', desired_ssid.name)
+          | map(attribute='number')
+          | first
+          | default(none)
+        ) -%}
+        {%- if existing_slot is not none -%}
+          {%- set chosen_slot = existing_slot -%}
+        {%- else -%}
+          {%- set remaining_slots = available_unconfigured_slots | difference(ns.consumed_slots) -%}
+          {%- set chosen_slot = remaining_slots | first | default(-1) -%}
+          {%- if chosen_slot != -1 -%}
+            {%- set ns.consumed_slots = ns.consumed_slots + [chosen_slot] -%}
+          {%- endif -%}
+        {%- endif -%}
+        {%- set ns.assignments = ns.assignments + [{'config': desired_ssid, 'number': chosen_slot}] -%}
+      {%- endfor -%}
+      {{ {'assignments': ns.assignments, 'consumed_slots': ns.consumed_slots} }}
+  changed_when: false
   tags:
     - ssid
 

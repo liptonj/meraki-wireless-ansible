@@ -86,7 +86,7 @@ PLAYBOOKS=(
 SYNTAX_ERRORS=0
 for playbook in "${PLAYBOOKS[@]}"; do
     if [ -f "$playbook" ]; then
-        if ansible-playbook --syntax-check "$playbook" > /dev/null 2>&1; then
+        if ansible-playbook --syntax-check -i inventory/production.yml "$playbook" > /dev/null 2>&1; then
             success "Syntax OK: $playbook"
         else
             error "Syntax error in: $playbook"
@@ -99,6 +99,15 @@ done
 
 if [ $SYNTAX_ERRORS -gt 0 ]; then
     error "Found $SYNTAX_ERRORS syntax error(s). Please fix before proceeding."
+    exit 1
+fi
+
+info "Test 3b: Validating Jinja2 templates..."
+if python scripts/validate_jinja_templates.py > /dev/null 2>&1; then
+    success "Jinja2 template syntax is valid"
+else
+    error "Jinja2 template validation failed"
+    python scripts/validate_jinja_templates.py || true
     exit 1
 fi
 

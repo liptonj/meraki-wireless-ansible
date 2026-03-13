@@ -22,7 +22,7 @@
   loop_control:
     label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
-    - security_baseline_rules.no_open_auth.enabled | default(true)
+    - meraki_compliance_security_baseline_rules.no_open_auth.enabled | default(true)
     - item.enabled | default(false) | bool
     - item.authMode | default('') == 'open'
   tags:
@@ -45,7 +45,7 @@
   loop_control:
     label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
-    - security_baseline_rules.minimum_encryption.enabled | default(true)
+    - meraki_compliance_security_baseline_rules.minimum_encryption.enabled | default(true)
     - item.enabled | default(false) | bool
     - item.authMode | default('open') != 'open'
     - item.encryptionMode | default('none') not in ['wpa2', 'wpa3', 'wpa2-eap', 'wpa3-eap', 'wpa2-sha256']
@@ -61,29 +61,30 @@
         'ssid_number': item.number | default(0),
         'rule': 'guest_bandwidth_limits',
         'severity': 'warning',
-        'message': 'Guest SSID "' + item.name | default('Unknown') + '" has no bandwidth limits',
+        'message': 'Guest SSID "' + item.name | default('Unknown') + '" is missing one or more bandwidth limits',
         'current_value': 'Upload: '
           + (item.perClientBandwidthLimitUp | default(0) | string)
           + ', Download: '
           + (item.perClientBandwidthLimitDown | default(0) | string),
-        'expected': 'Bandwidth limits > 0 for both upload and download'
+        'expected': 'Both upload and download bandwidth limits must be > 0'
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
     label: "{{ item.name | default('SSID ' ~ (item.number | default('unknown') | string)) }}"
   when:
-    - security_baseline_rules.guest_bandwidth_limits.enabled | default(true)
+    - meraki_compliance_security_baseline_rules.guest_bandwidth_limits.enabled | default(true)
     - item.enabled | default(false) | bool
     - >-
       (
         item.name | default('')
         | regex_search(
-          security_baseline_rules.guest_bandwidth_limits.guest_ssid_pattern
+          meraki_compliance_security_baseline_rules.guest_bandwidth_limits.guest_ssid_pattern
           | default('(?i)guest')
         )
       ) is not none
-    - (item.perClientBandwidthLimitUp | default(0) | int) == 0
-    - (item.perClientBandwidthLimitDown | default(0) | int) == 0
+    - >-
+      (item.perClientBandwidthLimitUp | default(0) | int) == 0
+      or (item.perClientBandwidthLimitDown | default(0) | int) == 0
   tags:
     - compliance
     - security

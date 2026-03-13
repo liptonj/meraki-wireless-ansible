@@ -8,6 +8,9 @@ on:
   repository_dispatch:
     types: [validate-ansible]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   lint:
     name: Lint Playbooks and Roles
@@ -15,16 +18,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Cache Ansible Galaxy collections
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
@@ -50,16 +53,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Cache Ansible Galaxy collections
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
@@ -79,9 +82,13 @@ jobs:
           for playbook in playbooks/*.yml; do
             if [ -f "$playbook" ]; then
               echo "Checking: $playbook"
-              ansible-playbook --syntax-check "$playbook" || exit 1
+              ansible-playbook --syntax-check -i inventory/production.yml "$playbook" || exit 1
             fi
           done
+
+      - name: Validate Jinja2 templates
+        run: |
+          python scripts/validate_jinja_templates.py
 
   dry-run:
     name: Dry Run Validation
@@ -96,16 +103,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Cache Ansible Galaxy collections
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.ansible/collections
           key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
@@ -175,12 +182,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'

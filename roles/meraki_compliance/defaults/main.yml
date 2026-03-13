@@ -6,6 +6,9 @@ meraki_desired_ssids: []
 compliance_check_enabled: true
 compliance_strict_mode: false
 compliance_report_dir: "{{ playbook_dir | default('.') }}/../reports"
+meraki_compliance_check_enabled: "{{ compliance_check_enabled }}"
+meraki_compliance_strict_mode: "{{ compliance_strict_mode }}"
+meraki_compliance_report_dir: "{{ compliance_report_dir }}"
 
 compliance_check_fields:
   - name
@@ -16,26 +19,40 @@ compliance_check_fields:
   - broadcast
   - minBitrate
   - bandSelection
+meraki_compliance_check_fields: "{{ compliance_check_fields }}"
 
 meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+meraki_compliance_api_retries: "{{ meraki_api_retries | default(3) }}"
+meraki_compliance_api_retry_delay: "{{ meraki_api_retry_delay | default(2) }}"
 
 # Alerting configuration
 compliance_alerting_enabled: true
+meraki_compliance_alerting_enabled: "{{ compliance_alerting_enabled }}"
 
 compliance_github_alert_enabled: true
 compliance_github_repo: ""
 compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
+meraki_compliance_github_alert_enabled: "{{ compliance_github_alert_enabled }}"
+meraki_compliance_github_repo: "{{ compliance_github_repo }}"
+meraki_compliance_github_token: "{{ compliance_github_token }}"
 
 compliance_webex_alert_enabled: true
 compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
+meraki_compliance_webex_alert_enabled: "{{ compliance_webex_alert_enabled }}"
+meraki_compliance_webex_webhook_url: "{{ compliance_webex_webhook_url }}"
 
 compliance_webex_bot_enabled: true
 compliance_webex_bot_token: "{{ lookup('env', 'WEBEX_BOT_TOKEN') | default(vault_webex_bot_token | default(''), true) }}"
 compliance_webex_alert_email: "{{ lookup('env', 'WEBEX_ALERT_EMAIL') | default(vault_webex_alert_email | default(''), true) }}"
 compliance_webex_webhook_secret: "{{ lookup('env', 'WEBEX_WEBHOOK_SECRET') | default(vault_webex_webhook_secret | default(''), true) }}"
+meraki_compliance_webex_bot_enabled: "{{ compliance_webex_bot_enabled }}"
+meraki_compliance_webex_bot_token: "{{ compliance_webex_bot_token }}"
+meraki_compliance_webex_alert_email: "{{ compliance_webex_alert_email }}"
+meraki_compliance_webex_webhook_secret: "{{ compliance_webex_webhook_secret }}"
 
 # Security baseline checks
 security_baseline_enabled: true
+meraki_compliance_security_baseline_enabled: "{{ security_baseline_enabled }}"
 
 security_baseline_rules:
   no_open_auth:
@@ -52,3 +69,4 @@ security_baseline_rules:
     severity: "warning"
     guest_ssid_pattern: "(?i)guest"
     description: "Guest SSIDs must have bandwidth limits configured"
+meraki_compliance_security_baseline_rules: "{{ security_baseline_rules }}"

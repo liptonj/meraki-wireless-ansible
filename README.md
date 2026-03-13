@@ -1,160 +1,201 @@
-# Meraki Wireless Ansible Automation
+# Meraki Wireless Ansible: Best Practices Guide
 
-[![Ansible](https://img.shields.io/badge/Ansible-2.20.2-EE0000?logo=ansible)](https://www.ansible.com/)
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+This repository manages Cisco Meraki wireless configuration with Ansible.
+This README is intentionally focused on operational best practices only.
 
-Automate Cisco Meraki wireless network management with Ansible playbooks. This project provides production-ready automation for SSID management, bulk AP deployment, and compliance checking.
+## Scope
 
-## Quick Start
+- Deploy and update SSID configuration safely.
+- Check compliance and detect drift.
+- Snapshot live configuration for audit history.
 
-### Prerequisites
+## Core Principles
 
-- **Python 3.12+** (required for Ansible 2.20.2)
-- **Git** for cloning the repository
-- **Meraki API Key** (get one from [Meraki Dashboard](https://dashboard.meraki.com/) — see [Getting Started](docs/GETTING_STARTED.md) for details)
-- **Meraki Organization Name** (the name of your org in Meraki Dashboard)
-- **Meraki Network Name(s)** (the name(s) of the networks you want to manage)
+- Use explicit inventory on every run (`-i inventory/production.yml`).
+- Run visibility checks before applying changes.
+- Use check mode and diffs before live execution.
+- Keep secrets out of Git (env vars or Ansible Vault only).
+- Keep changes idempotent and serial to limit blast radius.
+- Validate with lint and syntax checks before merge/deploy.
 
-### 1. Fork and Clone
+## Repository Layout
 
-```bash
-git clone https://github.com/YOUR_USERNAME/meraki-wireless-ansible.git
-cd meraki-wireless-ansible
+```text
+playbooks/      # Execution entrypoints
+roles/          # Reusable logic
+inventory/      # Environment inventory files
+group_vars/     # Desired state and shared vars
+vault/          # Vault examples/templates only
+baselines/      # Captured snapshots for drift/audit
 ```
 
-### 2. Setup Environment
+## Prerequisites
+
+- Python 3.12+
+- Ansible Core 2.20+
+- Meraki API key with required org/network access
+
+## Setup (Safe Defaults)
 
 ```bash
 make setup
 source venv/bin/activate
-```
-
-### 3. Configure API Credentials
-
-```bash
 cp .env.example .env
-# Edit .env and add your credentials:
-# MERAKI_DASHBOARD_API_KEY=your_api_key_here
-# MERAKI_ORG_NAME=your_organization_name_here
-# MERAKI_NETWORK_NAMES=Site-A,Site-B,Site-C
 ```
 
-### 4. Run Your First Playbook
+Populate `.env` with required values:
 
 ```bash
-ansible-playbook --syntax-check playbooks/ssid_management.yml
-ansible-playbook playbooks/ssid_management.yml
+MERAKI_DASHBOARD_API_KEY=...
+MERAKI_ORG_NAME=...
+MERAKI_NETWORK_NAMES=Site-A,Site-B
 ```
+
+## Secrets Best Practices
+
+- Do not commit plaintext credentials, keys, or tokens.
+- Use `vault/secrets.yml` (encrypted) for persistent secrets.
+- Keep vault password material outside Git.
+- Prefer environment-variable injection in CI/CD.
+
+Vault workflow:
+
+```bash
+cp vault/secrets.yml.example vault/secrets.yml
+make vault-encrypt
+```
+
+## Meraki Dashboard AI Webhook Flow
+
+End-to-end trigger path:
+
+```text
+Meraki Dashboard AI Agent -> Meraki Workflow -> GitHub repository_dispatch webhook -> GitHub Actions workflow -> Ansible playbook run
+```
+
+GitHub webhook endpoint:
+
+```text
+POST https://api.github.com/repos/<OWNER>/<REPO>/dispatches
+```
+
+Required request headers:
+
+- `Accept: application/vnd.github+json`
+- `Authorization: Bearer <GITHUB_TOKEN>`
+
+Supported dispatch patterns for Meraki workflow automation:
+
+1. `event_type: deploy-ssids`
+   - Workflow: `.github/workflows/deploy-ssids.yml`
+   - Typical use: AI agent requests SSID deploy with optional dry-run and target networks.
+   - Runs: SSID config update path, network desired-state update, deploy run, optional post-deploy compliance.
+2. `event_type: run-ssid-management|run-compliance-check|run-config-snapshot|run-configure-network|run-playbook`
+   - Workflow: `.github/workflows/playbook-dispatch.yml`
+   - Typical use: AI agent picks one playbook directly.
+   - Runs: selected playbook with optional `dry_run`, optional `target_networks`, optional `scope_ssid`.
+3. `event_type: meraki-config-change`
+   - Workflow: `.github/workflows/compliance.yml`
+   - Typical use: AI agent detects a dashboard configuration change and triggers drift/compliance checks.
+   - Runs: compliance check plus baseline snapshot.
+
+Example payload from Meraki workflow to run SSID deploy:
+
+```json
+{
+  "event_type": "deploy-ssids",
+  "client_payload": {
+    "environment": "production",
+    "dry_run": true,
+    "target_networks": "Site-A,Site-B",
+    "scope_ssid": "Corp-Secure"
+  }
+}
+```
+
+Example payload from Meraki workflow to run one specific playbook:
+
+```json
+{
+  "event_type": "run-playbook",
+  "client_payload": {
+    "playbook": "configure_network.yml",
+    "target_networks": "Site-A,Site-B",
+    "scope_ssid": "Corp-Secure",
+    "dry_run": false,
+    "commit_changes": true
+  }
+}
+```
+
+Webhook best practices:
+
+- Keep secrets in GitHub secrets, not in `client_payload`.
+- Default to `dry_run: true` for AI-initiated changes.
+- Send explicit `target_networks` to limit blast radius.
+- Require human approval in Meraki workflow before live changes.
+
+## Recommended Execution Order
+
+1. Validate target scope.
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml --list-hosts --list-tasks
+```
+
+2. Dry run with diff.
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml --check --diff
+```
+
+3. Limit blast radius for rollout.
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml --limit "Site-A"
+```
+
+4. Run live when dry-run output is acceptable.
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml
+```
+
+## Playbooks
+
+- `playbooks/ssid_management.yml`: deploy SSID desired config.
+- `playbooks/compliance_check.yml`: compare live state to desired state and security baseline.
+- `playbooks/config_snapshot.yml`: capture live SSID state into `baselines/`.
+- `playbooks/configure_network.yml`: update desired-state mapping for target networks.
+
+## Validation Gates
+
+Run locally before committing:
+
+```bash
+make lint
+make test
+make test-templates
+```
+
+- `make lint` runs `ansible-lint`.
+- `make test` runs syntax checks for all playbooks with explicit inventory plus Jinja2 template parsing.
+- `make test-templates` runs standalone Jinja2 template validation.
+
+## Operational Guardrails
+
+- Inventory is explicit by design; no implicit production default.
+- Multi-network execution is serialized for safer rollout/check behavior.
+- Compliance fetches fail closed on API errors (no silent success on failed data collection).
+- Compliance notifications are only sent when violation conditions are met.
 
 ## Documentation
 
-- **[Getting Started](docs/GETTING_STARTED.md)** - Setup guide with GitHub Actions configuration
-- **[Architecture](docs/ARCHITECTURE.md)** - Project structure and data flow
-- **[Compliance](docs/COMPLIANCE.md)** - SSID compliance checking and security baselines
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common errors and solutions
-- **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
-
-## What This Project Does
-
-### Playbooks
-
-- **`ssid_management.yml`** - Deploy and configure wireless SSIDs across networks
-- **`compliance_check.yml`** - Validate SSID configurations against desired state and security baselines
-- **`config_snapshot.yml`** - Capture live Meraki config and store as GitOps baseline
-
-### Key Features
-
-- **Name-Based Discovery** - Reference orgs and networks by name, not IDs
-- **Multi-Network Support** - Manage multiple networks in a single playbook run
-- **GitOps for Wireless** - Config stored in Git, drift detected automatically
-- **Security Baselines** - No open auth, WPA2 minimum, guest bandwidth limits
-- **Automated Alerting** - GitHub Issues + Webex Teams on compliance violations
-- **CI/CD Native** - Everything runs in GitHub Actions (deploy, check, alert, snapshot)
-- **Idempotent Operations** - Safe to run multiple times
-- **Environment-Aware** - Separate configs for production and development
-
-## Available Commands
-
-```bash
-make setup      # Initial project setup
-make lint       # Check code quality
-make test       # Validate playbook syntax
-make smoke-test # Run validation tests
-make clean      # Remove virtual environment
-```
-
-## Project Structure
-
-```
-meraki-wireless-ansible/
-├── .github/workflows/  # GitHub Actions CI/CD
-│   ├── validate.yml        # Lint, syntax check, security scan
-│   ├── deploy-ssids.yml    # SSID deployment workflow
-│   └── compliance.yml      # Compliance check + snapshot workflow
-├── playbooks/          # Main Ansible playbooks
-│   ├── ssid_management.yml
-│   ├── compliance_check.yml
-│   └── config_snapshot.yml
-├── roles/              # Reusable Ansible roles
-│   ├── meraki_discovery/
-│   ├── meraki_ssid/
-│   ├── meraki_compliance/
-│   └── meraki_snapshot/
-├── inventory/          # Host and group definitions
-│   └── production.yml
-├── group_vars/         # Environment-specific variables
-│   ├── all.yml
-│   ├── meraki_orgs.yml
-│   └── meraki_networks.yml
-├── baselines/          # GitOps config snapshots (auto-updated)
-├── vault/              # Encrypted secrets (Ansible Vault)
-│   └── secrets.yml.example
-├── reports/            # Generated compliance reports
-└── docs/               # Documentation
-```
-
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed explanation.
-
-## Security Best Practices
-
-- **Never commit API keys** - Use `.env` files (gitignored) or Ansible Vault
-- **Use names, not IDs** - Org and network names are resolved at runtime
-- **Use environment variables** - Load secrets from `.env` files
-- **Encrypt sensitive data** - Use `ansible-vault encrypt` for production secrets
-- **Review before running** - Always check playbooks before executing
-
-## Troubleshooting
-
-Common issues and solutions:
-
-- **Rate Limiting** - Meraki API has rate limits. See [Troubleshooting Guide](docs/TROUBLESHOOTING.md#rate-limiting)
-- **Authentication Errors** - Verify API key and organization ID. See [Troubleshooting Guide](docs/TROUBLESHOOTING.md#authentication-errors)
-- **API Issues** - Check API status and endpoint configuration. See [Troubleshooting Guide](docs/TROUBLESHOOTING.md#api-issues)
-
-For detailed troubleshooting, see [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`make lint && make test`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+- [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
+- [docs/COMPLIANCE.md](docs/COMPLIANCE.md)
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **Cisco Meraki** for the excellent Dashboard API
-- **Ansible Community** for the powerful automation framework
-
----
-
-**Ready to get started?** Head over to [GETTING_STARTED.md](docs/GETTING_STARTED.md) for detailed setup instructions!
+[MIT](LICENSE)

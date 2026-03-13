@@ -10,6 +10,7 @@
 
 - name: Capture Configuration Baseline per Network
   hosts: meraki_networks
+  serial: 1
   gather_facts: true
   become: false
 

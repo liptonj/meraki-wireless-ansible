@@ -4,9 +4,7 @@ skip_list:
   - name[casing]
   - name[role-name]
   - command-instead-of-module
-  - no-log-password
   - var-naming[no-role-prefix]
-  - run-once[task]
 
 enable_list:
   - yaml

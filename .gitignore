@@ -69,11 +69,16 @@ tmp/
 temp/
 *.tmp
 
+# Presentation files
+*.ppt
+*.pptx
+
 # OS
 Thumbs.db
 
 # Internal plans
 docs/plans/
+docs/MERAKI_AI_ASSISTANT_WORKFLOW_PROMPT.md
 .cursor/
 skills/
 AGENTS.md

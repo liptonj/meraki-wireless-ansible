@@ -11,6 +11,7 @@
 
 - name: Deploy SSIDs to Each Network
   hosts: meraki_networks
+  serial: 1
   gather_facts: false
   become: false
 

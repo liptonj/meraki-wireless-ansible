@@ -115,7 +115,7 @@ The following SSID configuration fields were checked for compliance:
 Consider scheduling this compliance check to run automatically:
 ```bash
 # Add to crontab for daily checks at 2 AM
-0 2 * * * cd /path/to/repo && ansible-playbook playbooks/compliance_check.yml
+0 2 * * * cd /path/to/repo && ansible-playbook -i inventory/production.yml playbooks/compliance_check.yml
 ```
 {% endif %}
 

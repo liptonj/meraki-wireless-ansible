@@ -61,3 +61,12 @@ repos:
       - id: shellcheck
         files: \.(sh|bash)$
         args: [-e, SC1091]
+
+  - repo: local
+    hooks:
+      - id: validate-jinja-templates
+        name: validate-jinja-templates
+        entry: python3 scripts/validate_jinja_templates.py
+        language: system
+        pass_filenames: false
+        files: \.j2$
