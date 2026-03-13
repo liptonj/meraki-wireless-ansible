@@ -90,7 +90,10 @@ def build_ssid_entry(
     min_bitrate: int | float = 11,
 ) -> dict:
     """Return a dict representing one SSID in meraki_orgs.yml."""
-    effective_encryption = "open" if auth_mode == "open" else encryption_mode
+    effective_encryption = "open" if auth_mode == "open" else "wpa"
+    effective_wpa_encryption_mode = (
+        "WPA3 Transition Mode" if encryption_mode == "wpa3" else "WPA2 only"
+    )
     entry: dict = {
         "name":                       _dqs(name),
         "enabled":                    enabled,
@@ -130,6 +133,8 @@ def build_ssid_entry(
         ]
 
     # open auth — no extra keys needed
+    if auth_mode != "open":
+        entry["wpaEncryptionMode"] = _dqs(effective_wpa_encryption_mode)
 
     if auth_mode == "open":
         entry.pop("perClientBandwidthLimitUp", None)

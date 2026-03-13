@@ -24,7 +24,8 @@ meraki_desired_ssids:
       - name: "Corp-Secure"
         enabled: true
         authMode: "psk"
-        encryptionMode: "wpa2"
+        encryptionMode: "wpa"
+        wpaEncryptionMode: "WPA2 only"
         visible: true
         minBitrate: 11
         bandSelection: "Dual band operation"
@@ -51,9 +52,8 @@ Security baselines are defined in `roles/meraki_compliance/defaults/main.yml` an
 | Rule | Severity | Description |
 |------|----------|-------------|
 | `no_open_auth` | Critical | Enabled SSIDs must not use open authentication |
-| `minimum_encryption` | Critical | Enabled SSIDs must use WPA2 or higher encryption |
+| `minimum_encryption` | Critical | Enabled authenticated SSIDs must use `wpaEncryptionMode` of `WPA2 only` or `WPA3 Transition Mode` |
 | `guest_bandwidth_limits` | Warning | Guest SSIDs (matching `(?i)guest` pattern) must have bandwidth limits |
-| `disabled_ssid_broadcast` | Warning | Disabled SSIDs should not be broadcasting |
 
 Critical violations trigger the alerting pipeline (GitHub Issues + Webex Teams).
 
@@ -69,14 +69,13 @@ security_baseline_rules:
   minimum_encryption:
     enabled: true
     severity: "critical"
-    minimum: "wpa2"
+    allowed_values:
+      - "WPA2 only"
+      - "WPA3 Transition Mode"
   guest_bandwidth_limits:
     enabled: true
     severity: "warning"
     guest_ssid_pattern: "(?i)guest"
-  disabled_ssid_broadcast:
-    enabled: true
-    severity: "warning"
 ```
 
 ## Alerting
@@ -108,6 +107,8 @@ The `compliance.yml` workflow runs compliance checks automatically:
 - **On manual dispatch** — Via the GitHub Actions UI
 - **On webhook** — Triggered by `repository_dispatch` (Meraki config change)
 - **After SSID deployment** — Called by `deploy-ssids.yml` after live deploys
+
+Webhook-triggered compliance runs are debounced to avoid duplicate audits during a burst of Meraki changes. By default, the workflow waits 2 minutes before starting; if another `meraki-config-change` event arrives during that quiet window, the older queued run is canceled and only the newest event continues. Override the delay with the GitHub repository variable `COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS`.
 
 After the compliance check, the workflow snapshots the live config to `baselines/` and commits it back to the repo for GitOps drift detection.
 
@@ -141,7 +142,8 @@ meraki_desired_ssids:
       - name: "SSID Name"
         enabled: true
         authMode: "psk"            # Options: open, psk, 8021x, ipsk
-        encryptionMode: "wpa2"     # Options: wpa, wpa2, wpa3
+        encryptionMode: "wpa"      # Authenticated SSIDs should normalize to wpa
+        wpaEncryptionMode: "WPA2 only"
         visible: true
         minBitrate: 11
         bandSelection: "Dual band operation"

@@ -15,6 +15,7 @@ compliance_check_fields:
   - enabled
   - authMode
   - encryptionMode
+  - wpaEncryptionMode
   - visible
   - broadcast
   - minBitrate
@@ -63,7 +64,10 @@ security_baseline_rules:
     enabled: true
     severity: "critical"
     minimum: "wpa2"
-    description: "Enabled SSIDs must use WPA2 or higher encryption"
+    allowed_values:
+      - "WPA2 only"
+      - "WPA3 Transition Mode"
+    description: "Enabled authenticated SSIDs must use an allowed wpaEncryptionMode"
   guest_bandwidth_limits:
     enabled: true
     severity: "warning"

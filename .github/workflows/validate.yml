@@ -159,8 +159,13 @@ jobs:
                 fi
                 EXTRA_ARGS+=("-e" "target_networks=${INPUT_TARGET_NETWORKS}")
 
-                if [ -n "$INPUT_SCOPE_SSID" ]; then
-                  EXTRA_ARGS+=("-e" "scope_ssid=${INPUT_SCOPE_SSID}")
+                EFFECTIVE_SCOPE_SSID="$INPUT_SCOPE_SSID"
+                if [ "$EFFECTIVE_SCOPE_SSID" = "true" ] || [ "$EFFECTIVE_SCOPE_SSID" = "false" ]; then
+                  EFFECTIVE_SCOPE_SSID=""
+                fi
+
+                if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
+                  EXTRA_ARGS+=("-e" "scope_ssid=${EFFECTIVE_SCOPE_SSID}")
                 fi
               fi
 

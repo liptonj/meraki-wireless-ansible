@@ -36,6 +36,7 @@
       - enabled
       - authMode
       - encryptionMode
+      - wpaEncryptionMode
       - visible
       - minBitrate
       - bandSelection
@@ -52,6 +53,21 @@
           Example: -e "target_networks=Site-A,Site-C"
         quiet: true
 
+    - name: Normalize optional scope_ssid
+      ansible.builtin.set_fact:
+        scope_ssid_normalized: "{{ scope_ssid | string | trim if scope_ssid is defined else '' }}"
+
+    - name: Validate scope_ssid is a real SSID name when provided
+      ansible.builtin.assert:
+        that:
+          - scope_ssid_normalized | lower not in ['true', 'false']
+        fail_msg: >-
+          scope_ssid received invalid boolean-like value "{{ scope_ssid_normalized }}".
+          Pass an SSID name such as -e "scope_ssid=Corp-Secure", or omit scope_ssid
+          to include all SSIDs.
+        quiet: true
+      when: scope_ssid_normalized | length > 0
+
   tasks:
 
     # ── Load source SSID definitions ─────────────────────────────────────────
@@ -64,8 +80,8 @@
       ansible.builtin.set_fact:
         source_ssids: >-
           {{ orgs_config.meraki_ssids | default([])
-             | selectattr('name', 'equalto', scope_ssid) | list
-             if (scope_ssid is defined and scope_ssid | length > 0)
+             | selectattr('name', 'equalto', scope_ssid_normalized) | list
+             if (scope_ssid_normalized | length > 0)
              else orgs_config.meraki_ssids | default([]) }}
 
     - name: Fail if scope_ssid is set but not found
@@ -73,25 +89,41 @@
         that:
           - source_ssids | length > 0
         fail_msg: >-
-          SSID "{{ scope_ssid }}" not found in group_vars/meraki_orgs.yml.
+          SSID "{{ scope_ssid_normalized }}" not found in group_vars/meraki_orgs.yml.
           Available SSIDs: {{ orgs_config.meraki_ssids | default([]) | map(attribute='name') | list | join(', ') }}
         quiet: false
-      when: scope_ssid is defined and scope_ssid | length > 0
+      when: scope_ssid_normalized | length > 0
 
     - name: Build compliance SSID entries (secrets excluded)
       ansible.builtin.set_fact:
         compliance_ssids: >-
           {{
-            compliance_ssids | default([]) + [{
-              'name':         item.name,
-              'enabled':      item.enabled      | default(true),
-              'authMode':     item.authMode     | default('psk'),
-              'encryptionMode': item.encryptionMode | default('wpa2'),
-              'visible':      item.visible      | default(true),
-              'broadcast':    item.visible      | default(true),
-              'minBitrate':   item.minBitrate   | default(11),
-              'bandSelection': item.bandSelection | default('Dual band operation')
-            }]
+            compliance_ssids | default([]) + [(
+              {
+                'name':         item.name,
+                'enabled':      item.enabled      | default(true),
+                'authMode':     item.authMode     | default('psk'),
+                'encryptionMode': (
+                  'open'
+                  if item.authMode | default('psk') == 'open'
+                  else 'wpa'
+                ),
+                'visible':      item.visible      | default(true),
+                'broadcast':    item.visible      | default(true),
+                'minBitrate':   item.minBitrate   | default(11),
+                'bandSelection': item.bandSelection | default('Dual band operation')
+              }
+              | combine(
+                  {} if item.authMode | default('psk') == 'open'
+                  else {
+                    'wpaEncryptionMode': item.wpaEncryptionMode | default(
+                      'WPA3 Transition Mode'
+                      if item.encryptionMode | default('') == 'wpa3'
+                      else 'WPA2 only'
+                    )
+                  }
+                )
+            )]
           }}
       loop: "{{ source_ssids }}"
       loop_control:

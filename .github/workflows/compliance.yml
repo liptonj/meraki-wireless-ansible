@@ -34,8 +34,14 @@ permissions:
   issues: write
   contents: write
 
+concurrency:
+  # Coalesce bursty repository_dispatch events into one compliance run.
+  group: ${{ github.event_name == 'repository_dispatch' && format('compliance-webhook-{0}', github.event.client_payload.environment || github.event.inputs.environment || 'production') || format('compliance-{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'repository_dispatch' }}
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS: ${{ vars.COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS || '120' }}
 
 jobs:
   compliance-check:
@@ -43,6 +49,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debounce webhook-triggered compliance checks
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        run: |
+          echo "Webhook trigger received. Waiting ${COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS}s for additional changes before running compliance."
+          sleep "${COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS}"
+
       - name: Checkout repository
         uses: actions/checkout@v6
 

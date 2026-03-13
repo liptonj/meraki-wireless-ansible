@@ -98,6 +98,7 @@ Supported dispatch patterns for Meraki workflow automation:
    - Workflow: `.github/workflows/compliance.yml`
    - Typical use: AI agent detects a dashboard configuration change and triggers drift/compliance checks.
    - Runs: compliance check plus baseline snapshot.
+   - Burst handling: webhook-triggered compliance runs are debounced for 2 minutes by default so a series of dashboard edits collapses into one final audit run.
 
 Example payload from Meraki workflow to run SSID deploy:
 
@@ -134,6 +135,153 @@ Webhook best practices:
 - Default to `dry_run: true` for AI-initiated changes.
 - Send explicit `target_networks` to limit blast radius.
 - Require human approval in Meraki workflow before live changes.
+- Set the repository variable `COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS` to tune the quiet window before webhook-triggered compliance executes.
+
+Webhook dispatch examples:
+
+```bash
+export GITHUB_TOKEN=...
+export OWNER=<OWNER>
+export REPO=<REPO>
+export DISPATCH_URL="https://api.github.com/repos/${OWNER}/${REPO}/dispatches"
+```
+
+Deploy SSIDs:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "deploy-ssids",
+    "client_payload": {
+      "environment": "production",
+      "dry_run": true,
+      "target_networks": "Site-A,Site-B",
+      "scope_ssid": "Corp-Secure"
+    }
+  }'
+```
+
+Run SSID management directly:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "run-ssid-management",
+    "client_payload": {
+      "dry_run": true,
+      "commit_changes": false,
+      "meraki_network_names": "Site-A,Site-B"
+    }
+  }'
+```
+
+Run compliance check:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "run-compliance-check",
+    "client_payload": {
+      "dry_run": true,
+      "commit_changes": false,
+      "meraki_network_names": "Site-A,Site-B"
+    }
+  }'
+```
+
+Run config snapshot:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "run-config-snapshot",
+    "client_payload": {
+      "dry_run": true,
+      "commit_changes": true,
+      "meraki_network_names": "Site-A,Site-B"
+    }
+  }'
+```
+
+Run configure network:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "run-configure-network",
+    "client_payload": {
+      "target_networks": "Site-A,Site-B",
+      "scope_ssid": "Corp-Secure",
+      "dry_run": false,
+      "commit_changes": true
+    }
+  }'
+```
+
+Run a selected playbook:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "run-playbook",
+    "client_payload": {
+      "playbook": "configure_network.yml",
+      "target_networks": "Site-A,Site-B",
+      "scope_ssid": "Corp-Secure",
+      "dry_run": false,
+      "commit_changes": true
+    }
+  }'
+```
+
+Trigger config-change compliance:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "meraki-config-change",
+    "client_payload": {
+      "meraki_network_names": "Site-A,Site-B"
+    }
+  }'
+```
+
+Trigger validation only:
+
+```bash
+curl -X POST "$DISPATCH_URL" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "validate-ansible",
+    "client_payload": {
+      "target_networks": "Site-A,Site-B",
+      "scope_ssid": "Corp-Secure"
+    }
+  }'
+```
 
 ## Recommended Execution Order
 
@@ -167,6 +315,31 @@ ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml
 - `playbooks/compliance_check.yml`: compare live state to desired state and security baseline.
 - `playbooks/config_snapshot.yml`: capture live SSID state into `baselines/`.
 - `playbooks/configure_network.yml`: update desired-state mapping for target networks.
+
+Local commands for each playbook:
+
+```bash
+# Deploy SSID config to Meraki
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml
+
+# Dry-run SSID deploy
+ansible-playbook -i inventory/production.yml playbooks/ssid_management.yml --check --diff
+
+# Run compliance audit and write a report
+ansible-playbook -i inventory/production.yml playbooks/compliance_check.yml
+
+# Capture live configuration into baselines/
+ansible-playbook -i inventory/production.yml playbooks/config_snapshot.yml
+
+# Update desired-state mappings for specific target networks
+ansible-playbook -i inventory/production.yml playbooks/configure_network.yml \
+  -e "target_networks=Site-A,Site-B"
+
+# Update desired-state mappings for one SSID only
+ansible-playbook -i inventory/production.yml playbooks/configure_network.yml \
+  -e "target_networks=Site-A,Site-B" \
+  -e "scope_ssid=Corp-Secure"
+```
 
 ## Validation Gates
 

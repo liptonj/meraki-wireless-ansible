@@ -29,7 +29,7 @@
     - compliance
     - security
 
-- name: Check minimum encryption standard on enabled SSIDs
+- name: Check allowed WPA encryption mode on enabled authenticated SSIDs
   ansible.builtin.set_fact:
     security_violations: >-
       {{ security_violations + [{
@@ -37,9 +37,13 @@
         'ssid_number': item.number | default(0),
         'rule': 'minimum_encryption',
         'severity': 'critical',
-        'message': 'SSID "' + item.name | default('Unknown') + '" uses weak encryption (' + item.encryptionMode | default('none') + ')',
-        'current_value': item.encryptionMode | default('none'),
-        'expected': 'wpa2 or higher'
+        'message': 'SSID "' + item.name | default('Unknown') + '" uses invalid wpaEncryptionMode (' + item.wpaEncryptionMode | default('missing') + ')',
+        'current_value': item.wpaEncryptionMode | default('missing'),
+        'expected': (
+          meraki_compliance_security_baseline_rules.minimum_encryption.allowed_values
+          | default(['WPA2 only', 'WPA3 Transition Mode'])
+          | join(', ')
+        )
       }] }}
   loop: "{{ current_ssids.meraki_response | default([]) }}"
   loop_control:
@@ -48,7 +52,10 @@
     - meraki_compliance_security_baseline_rules.minimum_encryption.enabled | default(true)
     - item.enabled | default(false) | bool
     - item.authMode | default('open') != 'open'
-    - item.encryptionMode | default('none') not in ['wpa2', 'wpa3', 'wpa2-eap', 'wpa3-eap', 'wpa2-sha256']
+    - item.wpaEncryptionMode | default('') not in (
+        meraki_compliance_security_baseline_rules.minimum_encryption.allowed_values
+        | default(['WPA2 only', 'WPA3 Transition Mode'])
+      )
   tags:
     - compliance
     - security

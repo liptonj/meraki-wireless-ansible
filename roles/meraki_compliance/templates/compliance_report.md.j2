@@ -37,10 +37,10 @@
 
 #### SSID Compliance Matrix
 
-| SSID Name | Number | Status | Enabled | Auth Mode | Encryption | Visible | Broadcast | Min Bitrate | Band Selection |
-|-----------|--------|--------|---------|-----------|------------|---------|-----------|-------------|----------------|
+| SSID Name | Number | Status | Enabled | Auth Mode | Encryption | WPA Encryption Mode | Visible | Broadcast | Min Bitrate | Band Selection |
+|-----------|--------|--------|---------|-----------|------------|---------------------|---------|-----------|-------------|----------------|
 {% for ssid in network.ssids %}
-| **{{ ssid.name }}** | {{ ssid.number }} | {% if ssid.compliant %}✅ PASS{% else %}⚠️ FAIL{% endif %} | {% if ssid.differences.enabled is defined %}⚠️ {{ ssid.current.enabled }} → {{ ssid.desired.enabled }}{% else %}✅ {{ ssid.current.enabled }}{% endif %} | {% if ssid.differences.authMode is defined %}⚠️ {{ ssid.current.authMode }} → {{ ssid.desired.authMode }}{% else %}✅ {{ ssid.current.authMode }}{% endif %} | {% if ssid.differences.encryptionMode is defined %}⚠️ {{ ssid.current.encryptionMode }} → {{ ssid.desired.encryptionMode }}{% else %}✅ {{ ssid.current.encryptionMode }}{% endif %} | {% if ssid.differences.visible is defined %}⚠️ {{ ssid.current.visible }} → {{ ssid.desired.visible }}{% else %}✅ {{ ssid.current.visible }}{% endif %} | {% if ssid.differences.broadcast is defined %}⚠️ {{ ssid.current.broadcast }} → {{ ssid.desired.broadcast }}{% else %}✅ {{ ssid.current.broadcast }}{% endif %} | {% if ssid.differences.minBitrate is defined %}⚠️ {{ ssid.current.minBitrate }} → {{ ssid.desired.minBitrate }}{% else %}✅ {{ ssid.current.minBitrate }}{% endif %} | {% if ssid.differences.bandSelection is defined %}⚠️ {{ ssid.current.bandSelection }} → {{ ssid.desired.bandSelection }}{% else %}✅ {{ ssid.current.bandSelection }}{% endif %} |
+| **{{ ssid.name }}** | {{ ssid.number }} | {% if ssid.compliant %}✅ PASS{% else %}⚠️ FAIL{% endif %} | {% if ssid.differences.enabled is defined %}⚠️ {{ ssid.current.enabled }} → {{ ssid.desired.enabled }}{% else %}✅ {{ ssid.current.enabled }}{% endif %} | {% if ssid.differences.authMode is defined %}⚠️ {{ ssid.current.authMode }} → {{ ssid.desired.authMode }}{% else %}✅ {{ ssid.current.authMode }}{% endif %} | {% if ssid.differences.encryptionMode is defined %}⚠️ {{ ssid.current.encryptionMode }} → {{ ssid.desired.encryptionMode }}{% else %}✅ {{ ssid.current.encryptionMode }}{% endif %} | {% if ssid.differences.wpaEncryptionMode is defined %}⚠️ {{ ssid.current.wpaEncryptionMode }} → {{ ssid.desired.wpaEncryptionMode }}{% else %}✅ {{ ssid.current.wpaEncryptionMode | default('n/a') }}{% endif %} | {% if ssid.differences.visible is defined %}⚠️ {{ ssid.current.visible }} → {{ ssid.desired.visible }}{% else %}✅ {{ ssid.current.visible }}{% endif %} | {% if ssid.differences.broadcast is defined %}⚠️ {{ ssid.current.broadcast }} → {{ ssid.desired.broadcast }}{% else %}✅ {{ ssid.current.broadcast }}{% endif %} | {% if ssid.differences.minBitrate is defined %}⚠️ {{ ssid.current.minBitrate }} → {{ ssid.desired.minBitrate }}{% else %}✅ {{ ssid.current.minBitrate }}{% endif %} | {% if ssid.differences.bandSelection is defined %}⚠️ {{ ssid.current.bandSelection }} → {{ ssid.desired.bandSelection }}{% else %}✅ {{ ssid.current.bandSelection }}{% endif %} |
 {% endfor %}
 
 {% if network.drift_detected %}
@@ -85,7 +85,8 @@ The following SSID configuration fields were checked for compliance:
 
 - `enabled` - SSID enabled/disabled status
 - `authMode` - Authentication mode (open, psk, 8021x, etc.)
-- `encryptionMode` - Encryption mode (wpa, wpa2, wpa2-eap, etc.)
+- `encryptionMode` - Transport mode (`open` for open auth, otherwise `wpa`)
+- `wpaEncryptionMode` - Allowed WPA profile (`WPA2 only` or `WPA3 Transition Mode`)
 - `visible` - SSID visibility in broadcast
 - `broadcast` - SSID broadcast status
 - `minBitrate` - Minimum bitrate (Mbps)

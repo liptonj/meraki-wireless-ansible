@@ -80,6 +80,30 @@
   vars:
     current_ssid: "{{ item }}"
     desired_ssid: "{{ desired_config.ssids | default([]) | selectattr('name', 'equalto', item.name | default('')) | first | default({}) }}"
+    desired_auth_mode_normalized: "{{ desired_ssid.authMode | default(current_ssid.authMode | default('unknown')) }}"
+    desired_encryption_mode_normalized: >-
+      {{
+        current_ssid.encryptionMode | default('unknown')
+        if desired_ssid | length == 0
+        else (
+          'open'
+          if desired_auth_mode_normalized == 'open'
+          else 'wpa'
+        )
+      }}
+    desired_wpa_encryption_mode_normalized: >-
+      {{
+        current_ssid.wpaEncryptionMode | default('')
+        if desired_ssid | length == 0
+        else (
+          desired_ssid.wpaEncryptionMode
+          | default(
+            'WPA3 Transition Mode'
+            if desired_ssid.encryptionMode | default('') == 'wpa3'
+            else 'WPA2 only'
+          )
+        )
+      }}
 
     enabled_diff: >-
       {{ {'current': current_ssid.enabled | default(false),
@@ -95,9 +119,15 @@
          else {} }}
     encryption_mode_diff: >-
       {{ {'current': current_ssid.encryptionMode | default('unknown'),
-          'desired': desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown'))}
-         if (desired_ssid.encryptionMode | default(current_ssid.encryptionMode | default('unknown')))
+          'desired': desired_encryption_mode_normalized}
+         if desired_encryption_mode_normalized
             != (current_ssid.encryptionMode | default('unknown'))
+         else {} }}
+    wpa_encryption_mode_diff: >-
+      {{ {'current': current_ssid.wpaEncryptionMode | default(''),
+          'desired': desired_wpa_encryption_mode_normalized}
+         if desired_wpa_encryption_mode_normalized
+            != (current_ssid.wpaEncryptionMode | default(''))
          else {} }}
     visible_diff: >-
       {{ {'current': current_ssid.visible | default(false),
@@ -130,6 +160,7 @@
           'enabled': enabled_diff,
           'authMode': auth_mode_diff,
           'encryptionMode': encryption_mode_diff,
+          'wpaEncryptionMode': wpa_encryption_mode_diff,
           'visible': visible_diff,
           'broadcast': broadcast_diff,
           'minBitrate': min_bitrate_diff,
@@ -150,6 +181,7 @@
         enabled: "{{ current_ssid.enabled | default(false) }}"
         authMode: "{{ current_ssid.authMode | default('unknown') }}"
         encryptionMode: "{{ current_ssid.encryptionMode | default('unknown') }}"
+        wpaEncryptionMode: "{{ current_ssid.wpaEncryptionMode | default('') }}"
         visible: "{{ current_ssid.visible | default(false) }}"
         broadcast: "{{ current_ssid.broadcast | default(false) }}"
         minBitrate: "{{ current_ssid.minBitrate | default(0) }}"

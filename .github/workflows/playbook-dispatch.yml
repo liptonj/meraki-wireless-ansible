@@ -175,8 +175,12 @@ jobs:
 
           if [ "$PLAYBOOK" = "playbooks/configure_network.yml" ]; then
             EXTRA_ARGS+=("-e" "target_networks=${{ env.INPUT_TARGET_NETWORKS }}")
-            if [ -n "${{ env.INPUT_SCOPE_SSID }}" ]; then
-              EXTRA_ARGS+=("-e" "scope_ssid=${{ env.INPUT_SCOPE_SSID }}")
+            EFFECTIVE_SCOPE_SSID="${{ env.INPUT_SCOPE_SSID }}"
+            if [ "$EFFECTIVE_SCOPE_SSID" = "true" ] || [ "$EFFECTIVE_SCOPE_SSID" = "false" ]; then
+              EFFECTIVE_SCOPE_SSID=""
+            fi
+            if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
+              EXTRA_ARGS+=("-e" "scope_ssid=${EFFECTIVE_SCOPE_SSID}")
             fi
           fi
 
