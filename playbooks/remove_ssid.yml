@@ -1,0 +1,104 @@
+---
+# Remove SSID Playbook
+# Resets a named SSID back to Meraki's default "Unconfigured" state.
+# The SSID slot is found by name, then overwritten with default values
+# that effectively disable and hide it.
+#
+# Required extra vars:
+#   ssid_to_remove   The exact SSID name to remove
+#                    e.g. -e "ssid_to_remove=Corp-Guest"
+#
+# Usage:
+#   ansible-playbook playbooks/remove_ssid.yml -i inventory/production.yml -e "ssid_to_remove=test"
+#   ansible-playbook playbooks/remove_ssid.yml -i inventory/production.yml -e "ssid_to_remove=test" --check --diff
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Remove SSID from Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: Validate ssid_to_remove is provided
+      ansible.builtin.assert:
+        that:
+          - ssid_to_remove is defined
+          - ssid_to_remove | length > 0
+        fail_msg: >-
+          ssid_to_remove extra var must be provided.
+          Example: -e "ssid_to_remove=Corp-Guest"
+        quiet: true
+      tags: always
+
+    - name: Get current SSIDs from Meraki
+      cisco.meraki.networks_wireless_ssids_info:
+        networkId: "{{ meraki_network_id }}"
+        meraki_api_key: "{{ meraki_api_key }}"
+      register: current_ssids_result
+      retries: "{{ meraki_api_retries | default(3) }}"
+      delay: "{{ meraki_api_retry_delay | default(2) }}"
+      until: current_ssids_result is not failed
+      tags: always
+
+    - name: Find the SSID slot to remove
+      ansible.builtin.set_fact:
+        ssid_slot_to_remove: >-
+          {{
+            current_ssids_result.meraki_response | default([])
+            | selectattr('name', 'equalto', ssid_to_remove)
+            | map(attribute='number')
+            | first
+            | default(-1)
+          }}
+      tags: always
+
+    - name: Report if SSID not found on this network
+      ansible.builtin.debug:
+        msg: >-
+          SSID "{{ ssid_to_remove }}" not found on network
+          {{ meraki_network_name_resolved }} ({{ meraki_network_id }}).
+          Skipping this network.
+      when: ssid_slot_to_remove | int == -1
+      tags: always
+
+    - name: Display removal plan
+      ansible.builtin.debug:
+        msg: >-
+          Will reset SSID "{{ ssid_to_remove }}" on slot {{ ssid_slot_to_remove }}
+          of network {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          back to unconfigured defaults.
+      when: ssid_slot_to_remove | int >= 0
+      tags: always
+
+  tasks:
+    - name: Reset SSID to unconfigured defaults
+      cisco.meraki.networks_wireless_ssids:
+        networkId: "{{ meraki_network_id }}"
+        number: "{{ ssid_slot_to_remove | int }}"
+        meraki_api_key: "{{ meraki_api_key }}"
+        name: "Unconfigured SSID {{ ssid_slot_to_remove | int + 1 }}"
+        enabled: false
+        authMode: "open"
+        visible: true
+        availableOnAllAps: true
+      when: ssid_slot_to_remove | int >= 0
+      retries: "{{ meraki_api_retries | default(3) }}"
+      delay: "{{ meraki_api_retry_delay | default(2) }}"
+      register: remove_result
+      tags: ssid
+
+  post_tasks:
+    - name: Removal summary
+      ansible.builtin.debug:
+        msg: |
+          SSID removal complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          SSID removed: {{ ssid_to_remove }}
+          Slot: {{ ssid_slot_to_remove }}
+          Reset to: Unconfigured SSID {{ ssid_slot_to_remove | int + 1 }}
+      when: ssid_slot_to_remove | int >= 0
+      tags: always

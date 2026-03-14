@@ -1,0 +1,264 @@
+name: Remove SSID
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+      dry_run:
+        description: 'Dry run (check mode — no changes pushed to Meraki)'
+        required: true
+        default: true
+        type: boolean
+
+      # ── SSID to remove ──────────────────────────────────────────────────────
+      ssid_name:
+        description: 'SSID name to remove (must match exactly)'
+        required: true
+
+      remove_from_group_vars:
+        description: 'Also remove SSID definition from group_vars/meraki_orgs.yml'
+        required: true
+        default: true
+        type: boolean
+
+      remove_from_desired_state:
+        description: 'Also remove from compliance desired state (meraki_networks.yml)'
+        required: true
+        default: true
+        type: boolean
+
+      # ── Network targeting ──────────────────────────────────────────────────
+      target_networks:
+        description: >-
+          Network names to remove SSID from — comma-separated (e.g. "Site-A,Site-C").
+          Leave blank to remove from ALL discovered networks.
+        required: false
+        default: ''
+
+  repository_dispatch:
+    types: [remove-ssid]
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  INPUT_ENVIRONMENT: ${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
+  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
+  INPUT_REMOVE_FROM_GROUP_VARS: ${{ github.event.inputs.remove_from_group_vars || (github.event.client_payload.remove_from_group_vars != null && format('{0}', github.event.client_payload.remove_from_group_vars)) || 'true' }}
+  INPUT_REMOVE_FROM_DESIRED_STATE: ${{ github.event.inputs.remove_from_desired_state || (github.event.client_payload.remove_from_desired_state != null && format('{0}', github.event.client_payload.remove_from_desired_state)) || 'true' }}
+  INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
+
+concurrency:
+  group: remove-ssid-${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+
+  # ── Job 1: Validate inputs ──────────────────────────────────────────────
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check SSID name is provided
+        run: |
+          if [ -z "${{ env.INPUT_SSID_NAME }}" ]; then
+            echo "::error::ssid_name is required. Provide the exact SSID name to remove."
+            exit 1
+          fi
+          echo "Will remove SSID: ${{ env.INPUT_SSID_NAME }}"
+
+  # ── Job 2: Remove SSID from group_vars (config-as-code cleanup) ─────────
+  remove-from-config:
+    name: Remove SSID from group_vars
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: >-
+      (github.event.inputs.remove_from_group_vars || (github.event.client_payload.remove_from_group_vars != null && format('{0}', github.event.client_payload.remove_from_group_vars)) || 'true') == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install ruamel.yaml
+        run: pip install "ruamel.yaml>=0.18"
+
+      - name: Remove SSID from meraki_orgs.yml
+        env:
+          SSID_NAME: ${{ env.INPUT_SSID_NAME }}
+        run: python scripts/remove_ssid_config.py
+
+      - name: Remove SSID from meraki_networks.yml desired state
+        if: ${{ env.INPUT_REMOVE_FROM_DESIRED_STATE == 'true' }}
+        env:
+          SSID_NAME: ${{ env.INPUT_SSID_NAME }}
+        run: python scripts/remove_ssid_desired_state.py
+
+      - name: Commit config changes
+        if: ${{ env.INPUT_DRY_RUN != 'true' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add group_vars/meraki_orgs.yml group_vars/meraki_networks.yml
+          if git diff --cached --quiet; then
+            echo "No config file changes to commit."
+          else
+            git commit -m "feat(ssids): remove SSID '${{ env.INPUT_SSID_NAME }}' from config [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          fi
+
+  # ── Job 3: Reset SSID on Meraki Dashboard ───────────────────────────────
+  remove-from-meraki:
+    name: Reset SSID on Meraki Dashboard
+    runs-on: ubuntu-latest
+    needs: [validate, remove-from-config]
+    if: >-
+      always()
+      && needs.validate.result == 'success'
+      && (needs.remove-from-config.result == 'success' || needs.remove-from-config.result == 'skipped')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
+      - name: Remove SSID from Meraki networks
+        env:
+          MERAKI_DASHBOARD_API_KEY:         ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:                  ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+        run: |
+          EXTRA_ARGS="--vault-password-file .vault_pass"
+          EXTRA_ARGS="$EXTRA_ARGS -e ssid_to_remove=${{ env.INPUT_SSID_NAME }}"
+
+          if [ "${{ env.INPUT_DRY_RUN }}" = "true" ]; then
+            echo "Running in CHECK MODE (dry run — no Meraki changes)"
+            EXTRA_ARGS="$EXTRA_ARGS --check --diff"
+          else
+            echo "Running in LIVE MODE — SSID will be reset to 'Unconfigured' on Meraki"
+          fi
+
+          ansible-playbook playbooks/remove_ssid.yml \
+            -i inventory/production.yml \
+            $EXTRA_ARGS
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+  # ── Job 4: Post-removal snapshot & compliance ────────────────────────────
+  post-removal:
+    name: Post-Removal Snapshot & Compliance
+    runs-on: ubuntu-latest
+    needs: [remove-from-meraki]
+    if: >-
+      (github.event.inputs.dry_run || (github.event.client_payload.dry_run != null
+      && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && needs.remove-from-meraki.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
+      - name: Snapshot post-removal config to baselines
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:          ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+        run: |
+          ansible-playbook playbooks/config_snapshot.yml \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass
+
+      - name: Commit updated baselines
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baselines/
+          if git diff --cached --quiet; then
+            echo "No baseline changes after removal."
+          else
+            git commit -m "chore(baselines): post-removal snapshot for '${{ env.INPUT_SSID_NAME }}' [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          fi
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SSID Removal" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| SSID Name | \`${{ env.INPUT_SSID_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Networks | \`${{ env.INPUT_TARGET_NETWORKS || '(all)' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Removed from group_vars | \`${{ env.INPUT_REMOVE_FROM_GROUP_VARS }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Removed from desired state | \`${{ env.INPUT_REMOVE_FROM_DESIRED_STATE }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dry Run | \`${{ env.INPUT_DRY_RUN }}\` |" >> $GITHUB_STEP_SUMMARY

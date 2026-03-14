@@ -1,0 +1,293 @@
+name: Rollback SSIDs
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+      dry_run:
+        description: 'Dry run (check mode — no changes pushed to Meraki)'
+        required: true
+        default: true
+        type: boolean
+
+      # ── Rollback source ────────────────────────────────────────────────────
+      rollback_source:
+        description: 'Where to restore config from'
+        required: true
+        default: 'baseline'
+        type: choice
+        options:
+          - baseline
+          - git-commit
+
+      rollback_commit_sha:
+        description: 'Git commit SHA to restore baselines from (only for git-commit source)'
+        required: false
+        default: ''
+
+      # ── Network targeting ──────────────────────────────────────────────────
+      target_networks:
+        description: >-
+          Network names to roll back — comma-separated (e.g. "Site-A,Site-C").
+          Leave blank to roll back ALL networks that have stored baselines.
+        required: false
+        default: ''
+
+  repository_dispatch:
+    types: [rollback-ssids]
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  INPUT_ENVIRONMENT: ${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
+  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_ROLLBACK_SOURCE: ${{ github.event.inputs.rollback_source || github.event.client_payload.rollback_source || 'baseline' }}
+  INPUT_ROLLBACK_COMMIT_SHA: ${{ github.event.inputs.rollback_commit_sha || github.event.client_payload.rollback_commit_sha || '' }}
+  INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
+
+concurrency:
+  group: rollback-ssids-${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+
+  # ── Job 1: Snapshot current config before rollback ───────────────────────
+  pre-rollback-snapshot:
+    name: Pre-Rollback Config Snapshot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
+      - name: Snapshot current live config (pre-rollback safety net)
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME: ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+        run: |
+          ansible-playbook playbooks/config_snapshot.yml \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass
+
+      - name: Upload pre-rollback snapshot as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-rollback-snapshot-${{ github.run_number }}
+          path: baselines/
+          retention-days: 90
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+  # ── Job 2: Restore SSIDs from baseline ───────────────────────────────────
+  rollback:
+    name: Rollback SSIDs from Baseline
+    runs-on: ubuntu-latest
+    needs: [pre-rollback-snapshot]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Restore baselines from historical git commit
+        if: ${{ env.INPUT_ROLLBACK_SOURCE == 'git-commit' && env.INPUT_ROLLBACK_COMMIT_SHA != '' }}
+        run: |
+          echo "Restoring baselines/ from commit ${{ env.INPUT_ROLLBACK_COMMIT_SHA }}"
+          git checkout "${{ env.INPUT_ROLLBACK_COMMIT_SHA }}" -- baselines/
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
+      - name: Run rollback playbook
+        env:
+          MERAKI_DASHBOARD_API_KEY:         ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:                  ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK:                  ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK:                   ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK:              ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK:                     ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST:             ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET:           ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST:    ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET:  ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+        run: |
+          EXTRA_ARGS="--vault-password-file .vault_pass"
+          if [ "${{ env.INPUT_DRY_RUN }}" = "true" ]; then
+            echo "Running in CHECK MODE (dry run — no Meraki changes)"
+            EXTRA_ARGS="$EXTRA_ARGS --check --diff"
+          else
+            echo "Running in LIVE MODE — SSIDs will be rolled back on Meraki"
+          fi
+
+          ansible-playbook playbooks/rollback_ssids.yml \
+            -i inventory/production.yml \
+            $EXTRA_ARGS
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SSID Rollback" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Rollback Source | \`${{ env.INPUT_ROLLBACK_SOURCE }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit SHA | \`${{ env.INPUT_ROLLBACK_COMMIT_SHA || '(current HEAD)' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Networks | \`${{ env.INPUT_TARGET_NETWORKS || '(all with baselines)' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dry Run | \`${{ env.INPUT_DRY_RUN }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`${{ env.INPUT_ENVIRONMENT }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ── Job 3: Post-rollback compliance check ────────────────────────────────
+  post-rollback-compliance:
+    name: Post-Rollback Compliance Check
+    runs-on: ubuntu-latest
+    needs: [rollback]
+    if: >-
+      (github.event.inputs.dry_run || (github.event.client_payload.dry_run != null
+      && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && needs.rollback.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write Ansible Vault password file
+        run: echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_pass
+
+      - name: Run compliance check
+        env:
+          MERAKI_DASHBOARD_API_KEY:         ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:                  ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK:                  ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK:                   ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK:              ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK:                     ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST:             ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET:           ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST:    ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET:  ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          GITHUB_TOKEN:                     ${{ secrets.GITHUB_TOKEN }}
+          WEBEX_BOT_TOKEN:                  ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL:                ${{ secrets.WEBEX_ALERT_EMAIL }}
+        run: |
+          ansible-playbook playbooks/compliance_check.yml \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass \
+            -e "compliance_github_repo=${{ github.repository }}" \
+            -e "compliance_github_token=${GITHUB_TOKEN}"
+
+      - name: Snapshot post-rollback config to baselines
+        if: always()
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME:          ${{ vars.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: >-
+            ${{ env.INPUT_TARGET_NETWORKS != ''
+                && env.INPUT_TARGET_NETWORKS
+                || vars.MERAKI_NETWORK_NAMES }}
+        run: |
+          ansible-playbook playbooks/config_snapshot.yml \
+            -i inventory/production.yml \
+            --vault-password-file .vault_pass
+
+      - name: Commit updated baseline after rollback
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baselines/
+          if git diff --cached --quiet; then
+            echo "No baseline changes after rollback."
+          else
+            git commit -m "chore(baselines): post-rollback snapshot [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          fi
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass

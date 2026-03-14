@@ -1,0 +1,80 @@
+---
+# Rollback SSIDs Playbook
+# Restores SSID configuration from stored baselines back to Meraki networks.
+# Each network's baseline (baselines/{network_id}/ssids.yml) contains the
+# full SSID config captured by config_snapshot.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/rollback_ssids.yml -i inventory/production.yml
+#   ansible-playbook playbooks/rollback_ssids.yml -i inventory/production.yml --check --diff
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Rollback SSIDs from Baseline on Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: false
+  become: false
+
+  vars:
+    baseline_dir: "{{ playbook_dir }}/../baselines"
+
+  pre_tasks:
+    - name: Check if baseline exists for this network
+      ansible.builtin.stat:
+        path: "{{ baseline_dir }}/{{ meraki_network_id }}/ssids.yml"
+      register: baseline_file
+      delegate_to: localhost
+      tags: always
+
+    - name: Skip network if no baseline exists
+      ansible.builtin.debug:
+        msg: >-
+          No baseline found for network {{ meraki_network_name_resolved }}
+          ({{ meraki_network_id }}). Skipping rollback for this network.
+      when: not baseline_file.stat.exists
+      tags: always
+
+    - name: Load baseline SSID configuration
+      ansible.builtin.include_vars:
+        file: "{{ baseline_dir }}/{{ meraki_network_id }}/ssids.yml"
+        name: baseline_config
+      when: baseline_file.stat.exists
+      tags: always
+
+    - name: Build rollback SSID configs from baseline
+      ansible.builtin.set_fact:
+        meraki_ssid_configs: >-
+          {{
+            baseline_config.ssids | default([])
+            | rejectattr('name', 'match', '^Unconfigured SSID')
+            | list
+          }}
+      when: baseline_file.stat.exists
+      tags: always
+
+    - name: Display rollback plan
+      ansible.builtin.debug:
+        msg: >-
+          Rolling back {{ meraki_ssid_configs | length }} SSID(s) on
+          {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          from baseline configuration.
+          SSIDs: {{ meraki_ssid_configs | map(attribute='name') | list | join(', ') }}
+      when: baseline_file.stat.exists and (meraki_ssid_configs | length > 0)
+      tags: always
+
+  roles:
+    - role: meraki_ssid
+      when: baseline_file.stat.exists and (meraki_ssid_configs | default([]) | length > 0)
+
+  post_tasks:
+    - name: Rollback summary
+      ansible.builtin.debug:
+        msg: |
+          SSID rollback complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          SSIDs restored: {{ meraki_ssid_configs | default([]) | length }}
+      when: baseline_file.stat.exists
+      tags: always
