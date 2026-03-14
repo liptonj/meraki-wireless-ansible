@@ -1,0 +1,157 @@
+---
+# remove_ssid_from_config.yml
+#
+# Native Ansible playbook — removes an SSID entry from group_vars/meraki_orgs.yml
+# and (optionally) from the compliance desired state in
+# group_vars/meraki_networks.yml, then writes the files back to disk.
+# Git commit / push is handled by the calling workflow.
+#
+# Follows the same pattern as configure_network.yml: localhost, include_vars,
+# Jinja2 namespace loops, ansible.builtin.copy with content.
+#
+# Required extra vars:
+#   ssid_name             Exact name of the SSID to remove
+#                         e.g. -e "ssid_name=Corp-Guest"
+#
+# Optional extra vars:
+#   remove_from_desired_state   true/false — also strip the SSID from
+#                               meraki_networks.yml (default: true)
+
+- name: Remove SSID from Config Files
+  hosts: localhost
+  gather_facts: true
+  become: false
+  connection: local
+
+  vars:
+    meraki_orgs_path: "{{ playbook_dir }}/../group_vars/meraki_orgs.yml"
+    meraki_networks_path: "{{ playbook_dir }}/../group_vars/meraki_networks.yml"
+
+    # Default to true if caller does not set it
+    should_remove_desired_state: >-
+      {{ (remove_from_desired_state | default('true')) | string | lower == 'true' }}
+
+  pre_tasks:
+    - name: Validate ssid_name is provided
+      ansible.builtin.assert:
+        that:
+          - ssid_name is defined
+          - ssid_name | length > 0
+        fail_msg: >-
+          ssid_name extra var must be provided and non-empty.
+          Example: -e "ssid_name=Corp-Guest"
+        quiet: true
+
+  tasks:
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Part 1 — Remove SSID from meraki_orgs.yml
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: Load meraki_orgs.yml
+      ansible.builtin.include_vars:
+        file: "{{ meraki_orgs_path }}"
+        name: orgs_config
+
+    - name: Verify SSID exists in meraki_orgs.yml
+      ansible.builtin.assert:
+        that:
+          - orgs_config.meraki_ssids | default([])
+            | selectattr('name', 'equalto', ssid_name) | list | length > 0
+        fail_msg: >-
+          SSID "{{ ssid_name }}" not found in group_vars/meraki_orgs.yml.
+          Available SSIDs: {{ orgs_config.meraki_ssids | default([])
+            | map(attribute='name') | list | join(', ') }}
+        quiet: false
+
+    - name: Build filtered SSID list (excluding target)
+      ansible.builtin.set_fact:
+        filtered_ssids: >-
+          {{ orgs_config.meraki_ssids | default([])
+             | rejectattr('name', 'equalto', ssid_name) | list }}
+
+    - name: Log removal from meraki_orgs.yml
+      ansible.builtin.debug:
+        msg: >-
+          Removing "{{ ssid_name }}" from meraki_orgs.yml —
+          before: {{ orgs_config.meraki_ssids | default([]) | map(attribute='name') | list | join(', ') }},
+          after: {{ filtered_ssids | map(attribute='name') | list | join(', ') }}
+
+    - name: Build updated orgs_config with SSID removed
+      ansible.builtin.set_fact:
+        updated_orgs_config: >-
+          {{ orgs_config | combine({'meraki_ssids': filtered_ssids}) }}
+
+    - name: Write updated meraki_orgs.yml
+      ansible.builtin.copy:
+        dest: "{{ meraki_orgs_path }}"
+        content: |
+          # SSID Deployment Config — applies to hosts in the `meraki_orgs` inventory group
+          # (used by ssid_management.yml). Defines what SSIDs to deploy and operational settings.
+          # Last updated: {{ ansible_date_time.iso8601 }} via remove_ssid_from_config.yml
+          {{ updated_orgs_config | to_nice_yaml(indent=2) }}
+        mode: "0644"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Part 2 — Remove SSID from meraki_networks.yml (compliance desired state)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: Load current meraki_networks.yml
+      ansible.builtin.include_vars:
+        file: "{{ meraki_networks_path }}"
+        name: networks_config
+      when: should_remove_desired_state | bool
+
+    - name: Remove SSID from each network's desired state
+      # Uses Jinja2 namespace() for mutation inside loop — same pattern as
+      # configure_network.yml.
+      ansible.builtin.set_fact:
+        updated_desired_ssids: >-
+          {%- set result = namespace(networks=[]) -%}
+          {%- for net in networks_config.meraki_desired_ssids | default([]) -%}
+            {%- set filtered = net.ssids | default([])
+                | rejectattr('name', 'equalto', ssid_name) | list -%}
+            {%- if filtered | length > 0 -%}
+              {%- set updated_net = {'network_name': net.network_name, 'ssids': filtered} -%}
+              {%- set result.networks = result.networks + [updated_net] -%}
+            {%- else -%}
+              {# Network has no remaining SSIDs — keep entry with empty list #}
+              {%- set empty_net = {'network_name': net.network_name, 'ssids': []} -%}
+              {%- set result.networks = result.networks + [empty_net] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result.networks }}
+      when: should_remove_desired_state | bool
+
+    - name: Log removal from meraki_networks.yml
+      ansible.builtin.debug:
+        msg: >-
+          Removed "{{ ssid_name }}" from desired state.
+          Networks processed: {{ updated_desired_ssids
+            | map(attribute='network_name') | list | join(', ') }}
+      when: should_remove_desired_state | bool
+
+    - name: Write updated meraki_networks.yml
+      ansible.builtin.copy:
+        dest: "{{ meraki_networks_path }}"
+        content: "---\n# Compliance Desired State — used by compliance_check.yml.\n\
+          # Any deviation from these values is flagged as drift.\n#\n\
+          # network_name must match the Meraki network name exactly.\n\
+          # Networks not listed here will have no desired config to compare against.\n\
+          # Last updated: {{ ansible_date_time.iso8601 }} via remove_ssid_from_config.yml\n\
+          meraki_desired_ssids:\n\
+          {{ updated_desired_ssids | to_nice_yaml(indent=2) | indent(2, first=True) }}"
+        mode: "0644"
+      when: should_remove_desired_state | bool
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Summary
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          remove_ssid_from_config.yml complete.
+          SSID removed: {{ ssid_name }}.
+          meraki_orgs.yml updated: yes.
+          meraki_networks.yml updated: {{ should_remove_desired_state }}.

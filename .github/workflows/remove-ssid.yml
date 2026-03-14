@@ -96,19 +96,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install ruamel.yaml
-        run: pip install "ruamel.yaml>=0.18"
+      - name: Install Ansible
+        run: pip install ansible-core
 
-      - name: Remove SSID from meraki_orgs.yml
-        env:
-          SSID_NAME: ${{ env.INPUT_SSID_NAME }}
-        run: python scripts/remove_ssid_config.py
-
-      - name: Remove SSID from meraki_networks.yml desired state
-        if: ${{ env.INPUT_REMOVE_FROM_DESIRED_STATE == 'true' }}
-        env:
-          SSID_NAME: ${{ env.INPUT_SSID_NAME }}
-        run: python scripts/remove_ssid_desired_state.py
+      - name: Remove SSID from config files via Ansible
+        run: |
+          ansible-playbook playbooks/remove_ssid_from_config.yml \
+            -e "ssid_name=${{ env.INPUT_SSID_NAME }}" \
+            -e "remove_from_desired_state=${{ env.INPUT_REMOVE_FROM_DESIRED_STATE }}"
 
       - name: Commit config changes
         if: ${{ env.INPUT_DRY_RUN != 'true' }}
