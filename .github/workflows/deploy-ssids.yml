@@ -13,7 +13,7 @@ on:
       dry_run:
         description: 'Dry run (check mode — no changes pushed to Meraki)'
         required: true
-        default: true
+        default: false
         type: boolean
 
       # ── New SSID configuration ─────────────────────────────────────────────
@@ -101,7 +101,11 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   INPUT_ENVIRONMENT: ${{ github.event.inputs.environment || github.event.client_payload.environment || 'production' }}
-  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch'
+    && format('{0}', github.event.inputs.dry_run)
+    || (toJSON(github.event.client_payload.dry_run) != 'null'
+        && format('{0}', github.event.client_payload.dry_run))
+    || 'false' }}
   INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
   INPUT_AUTH_MODE: ${{ github.event.inputs.auth_mode || github.event.client_payload.auth_mode || 'psk' }}
   INPUT_ENCRYPTION_MODE: ${{ github.event.inputs.encryption_mode || github.event.client_payload.encryption_mode || 'wpa3' }}
@@ -401,7 +405,11 @@ jobs:
     needs: [deploy]
     if: ${{ always() && needs.deploy.result == 'success' }}
     env:
-      INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+      INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch'
+        && format('{0}', github.event.inputs.dry_run)
+        || (toJSON(github.event.client_payload.dry_run) != 'null'
+            && format('{0}', github.event.client_payload.dry_run))
+        || 'false' }}
       INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
 
     steps:
