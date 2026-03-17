@@ -1,0 +1,359 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 920" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.13"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0097A7"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1565C0"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#E65100"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2E7D32"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6A1B9A"/>
+    </marker>
+    <marker id="arrow-dash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/>
+    </marker>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fb"/>
+      <stop offset="100%" stop-color="#eef1f5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="920" rx="12" fill="url(#bgGrad)"/>
+
+  <!-- Title -->
+  <text x="700" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#1a1a2e" letter-spacing="0.5">Meraki Wireless Automation &#8212; End-to-End Architecture</text>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- RPCVP Phase Banner                              -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g transform="translate(30, 52)">
+    <!-- REQUEST -->
+    <rect x="0" y="0" width="268" height="42" rx="6" fill="#0097A7"/>
+    <text x="134" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" letter-spacing="1.5">REQUEST</text>
+
+    <!-- PLAN -->
+    <rect x="272" y="0" width="268" height="42" rx="6" fill="#1565C0"/>
+    <text x="406" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" letter-spacing="1.5">PLAN</text>
+
+    <!-- CHANGE -->
+    <rect x="544" y="0" width="268" height="42" rx="6" fill="#E65100"/>
+    <text x="678" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" letter-spacing="1.5">CHANGE</text>
+
+    <!-- VERIFY -->
+    <rect x="816" y="0" width="268" height="42" rx="6" fill="#2E7D32"/>
+    <text x="950" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" letter-spacing="1.5">VERIFY</text>
+
+    <!-- PROVE -->
+    <rect x="1088" y="0" width="252" height="42" rx="6" fill="#6A1B9A"/>
+    <text x="1214" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" letter-spacing="1.5">PROVE</text>
+  </g>
+
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SYSTEM 1: Meraki Dashboard  (REQUEST)           -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="110" width="250" height="340" rx="10" fill="#fff" stroke="#0097A7" stroke-width="2"/>
+    <rect x="40" y="110" width="250" height="38" rx="10" fill="#0097A7"/>
+    <rect x="40" y="138" width="250" height="10" fill="#0097A7"/>
+    <text x="165" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">MERAKI DASHBOARD</text>
+  </g>
+
+  <!-- AI Assistant -->
+  <rect x="56" y="162" width="218" height="56" rx="7" fill="#e0f7fa" stroke="#0097A7" stroke-width="1"/>
+  <text x="165" y="183" text-anchor="middle" font-size="12" font-weight="600" fill="#00696e">AI Assistant</text>
+  <text x="165" y="208" text-anchor="middle" font-size="10" fill="#555">"Deploy Corp-Secure SSID"</text>
+
+  <!-- Dashboard Workflow -->
+  <rect x="56" y="228" width="218" height="56" rx="7" fill="#e0f7fa" stroke="#0097A7" stroke-width="1"/>
+  <text x="165" y="249" text-anchor="middle" font-size="12" font-weight="600" fill="#00696e">Dashboard Workflow</text>
+  <text x="165" y="274" text-anchor="middle" font-size="10" fill="#555">"Ansible SSID Deploy"</text>
+
+  <!-- Webhook Alert -->
+  <rect x="56" y="294" width="218" height="70" rx="7" fill="#e0f7fa" stroke="#0097A7" stroke-width="1"/>
+  <text x="165" y="315" text-anchor="middle" font-size="12" font-weight="600" fill="#00696e">Webhook Alerts</text>
+  <text x="165" y="333" text-anchor="middle" font-size="10" fill="#555">alertType: settings_changed</text>
+  <text x="165" y="353" text-anchor="middle" font-size="9" fill="#888">Fires on any config change</text>
+
+  <!-- Arrows inside Meraki -->
+  <line x1="165" y1="218" x2="165" y2="228" stroke="#0097A7" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+  <line x1="165" y1="284" x2="165" y2="294" stroke="#0097A7" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+
+  <!-- AI -> Workflow label -->
+  <text x="195" y="226" font-size="8" fill="#0097A7" font-style="italic">triggers</text>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SYSTEM 2: GitHub  (PLAN)                        -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g filter="url(#shadow)">
+    <rect x="320" y="110" width="240" height="420" rx="10" fill="#fff" stroke="#1565C0" stroke-width="2"/>
+    <rect x="320" y="110" width="240" height="38" rx="10" fill="#1565C0"/>
+    <rect x="320" y="138" width="240" height="10" fill="#1565C0"/>
+    <text x="440" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">GITHUB ACTIONS</text>
+  </g>
+
+  <!-- repository_dispatch -->
+  <rect x="336" y="162" width="208" height="52" rx="7" fill="#e3f2fd" stroke="#1565C0" stroke-width="1"/>
+  <text x="440" y="180" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">repository_dispatch</text>
+  <text x="440" y="196" text-anchor="middle" font-size="9" fill="#555">POST /repos/{owner}/{repo}/dispatches</text>
+
+  <!-- validate.yml -->
+  <rect x="336" y="224" width="208" height="72" rx="7" fill="#e3f2fd" stroke="#1565C0" stroke-width="1"/>
+  <text x="440" y="244" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">validate.yml</text>
+  <text x="440" y="260" text-anchor="middle" font-size="9" fill="#555">ansible-lint</text>
+  <text x="440" y="274" text-anchor="middle" font-size="9" fill="#555">syntax-check &amp; dry-run</text>
+  <text x="440" y="288" text-anchor="middle" font-size="9" fill="#555">detect-secrets scan</text>
+
+  <!-- deploy-ssids.yml -->
+  <rect x="336" y="306" width="208" height="72" rx="7" fill="#e3f2fd" stroke="#1565C0" stroke-width="1"/>
+  <text x="440" y="326" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">deploy-ssids.yml</text>
+  <text x="440" y="342" text-anchor="middle" font-size="9" fill="#555">configure-ssid job</text>
+  <text x="440" y="356" text-anchor="middle" font-size="9" fill="#555">configure-network job</text>
+  <text x="440" y="370" text-anchor="middle" font-size="9" fill="#555">deploy job</text>
+
+  <!-- compliance.yml -->
+  <rect x="336" y="388" width="208" height="56" rx="7" fill="#e3f2fd" stroke="#1565C0" stroke-width="1"/>
+  <text x="440" y="410" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">compliance.yml</text>
+  <text x="440" y="426" text-anchor="middle" font-size="9" fill="#555">debounce + reusable workflow</text>
+
+  <!-- playbook-dispatch.yml -->
+  <rect x="336" y="454" width="208" height="56" rx="7" fill="#e3f2fd" stroke="#1565C0" stroke-width="1"/>
+  <text x="440" y="476" text-anchor="middle" font-size="11" font-weight="600" fill="#0d47a1">playbook-dispatch.yml</text>
+  <text x="440" y="492" text-anchor="middle" font-size="9" fill="#555">manual / dispatch playbook runner</text>
+
+  <!-- Internal arrows in GitHub -->
+  <line x1="440" y1="214" x2="440" y2="224" stroke="#1565C0" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <line x1="440" y1="296" x2="440" y2="306" stroke="#1565C0" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <line x1="440" y1="378" x2="440" y2="388" stroke="#1565C0" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SYSTEM 3: Ansible Control  (CHANGE)             -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g filter="url(#shadow)">
+    <rect x="590" y="110" width="240" height="380" rx="10" fill="#fff" stroke="#E65100" stroke-width="2"/>
+    <rect x="590" y="110" width="240" height="38" rx="10" fill="#E65100"/>
+    <rect x="590" y="138" width="240" height="10" fill="#E65100"/>
+    <text x="710" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">ANSIBLE ENGINE</text>
+  </g>
+
+  <!-- ssid_management.yml -->
+  <rect x="606" y="162" width="208" height="56" rx="7" fill="#fff3e0" stroke="#E65100" stroke-width="1"/>
+  <text x="710" y="183" text-anchor="middle" font-size="11" font-weight="600" fill="#bf360c">ssid_management.yml</text>
+  <text x="710" y="200" text-anchor="middle" font-size="9" fill="#555">meraki_discovery + meraki_ssid roles</text>
+
+  <!-- group_vars -->
+  <rect x="606" y="228" width="208" height="52" rx="7" fill="#fff3e0" stroke="#E65100" stroke-width="1"/>
+  <text x="710" y="248" text-anchor="middle" font-size="11" font-weight="600" fill="#bf360c">Desired State (GitOps)</text>
+  <text x="710" y="266" text-anchor="middle" font-size="9" fill="#555">group_vars/meraki_orgs.yml</text>
+
+  <!-- configure_network -->
+  <rect x="606" y="290" width="208" height="52" rx="7" fill="#fff3e0" stroke="#E65100" stroke-width="1"/>
+  <text x="710" y="310" text-anchor="middle" font-size="11" font-weight="600" fill="#bf360c">configure_network.yml</text>
+  <text x="710" y="328" text-anchor="middle" font-size="9" fill="#555">meraki_networks.yml desired state</text>
+
+  <!-- remove_ssid + group_policy -->
+  <rect x="606" y="352" width="100" height="48" rx="7" fill="#fff3e0" stroke="#E65100" stroke-width="1"/>
+  <text x="656" y="373" text-anchor="middle" font-size="9" font-weight="600" fill="#bf360c">remove_ssid</text>
+  <text x="656" y="389" text-anchor="middle" font-size="8" fill="#555">.yml</text>
+
+  <rect x="714" y="352" width="100" height="48" rx="7" fill="#fff3e0" stroke="#E65100" stroke-width="1"/>
+  <text x="764" y="373" text-anchor="middle" font-size="9" font-weight="600" fill="#bf360c">group_policy</text>
+  <text x="764" y="389" text-anchor="middle" font-size="8" fill="#555">_management.yml</text>
+
+  <!-- Meraki API target -->
+  <rect x="606" y="418" width="208" height="56" rx="7" fill="#fbe9e7" stroke="#d84315" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="710" y="440" text-anchor="middle" font-size="11" font-weight="700" fill="#d84315">Meraki Dashboard API</text>
+  <text x="710" y="458" text-anchor="middle" font-size="9" fill="#555">PUT /networks/{id}/wireless/ssids/{n}</text>
+
+  <!-- Arrow: playbooks -> API -->
+  <line x1="710" y1="400" x2="710" y2="418" stroke="#E65100" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SYSTEM 4: Compliance Engine  (VERIFY)           -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g filter="url(#shadow)">
+    <rect x="860" y="110" width="240" height="380" rx="10" fill="#fff" stroke="#2E7D32" stroke-width="2"/>
+    <rect x="860" y="110" width="240" height="38" rx="10" fill="#2E7D32"/>
+    <rect x="860" y="138" width="240" height="10" fill="#2E7D32"/>
+    <text x="980" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">COMPLIANCE ENGINE</text>
+  </g>
+
+  <!-- compliance_check.yml -->
+  <rect x="876" y="162" width="208" height="60" rx="7" fill="#e8f5e9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="980" y="183" text-anchor="middle" font-size="11" font-weight="600" fill="#1b5e20">compliance_check.yml</text>
+  <text x="980" y="200" text-anchor="middle" font-size="9" fill="#555">meraki_compliance role</text>
+  <text x="980" y="214" text-anchor="middle" font-size="9" fill="#555">Runs post-deploy or scheduled</text>
+
+  <!-- Drift Detection -->
+  <rect x="876" y="232" width="208" height="48" rx="7" fill="#e8f5e9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="980" y="252" text-anchor="middle" font-size="11" font-weight="600" fill="#1b5e20">Drift Detection</text>
+  <text x="980" y="270" text-anchor="middle" font-size="9" fill="#555">Live config vs. desired state</text>
+
+  <!-- Security Baseline -->
+  <rect x="876" y="290" width="208" height="48" rx="7" fill="#e8f5e9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="980" y="310" text-anchor="middle" font-size="11" font-weight="600" fill="#1b5e20">Security Baseline Audit</text>
+  <text x="980" y="328" text-anchor="middle" font-size="9" fill="#555">WPA3, hidden SSIDs, encryption</text>
+
+  <!-- Group Policy ACL -->
+  <rect x="876" y="348" width="208" height="48" rx="7" fill="#e8f5e9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="980" y="368" text-anchor="middle" font-size="11" font-weight="600" fill="#1b5e20">Group Policy ACL Check</text>
+  <text x="980" y="386" text-anchor="middle" font-size="9" fill="#555">Firewall rules compliance</text>
+
+  <!-- Outputs -->
+  <rect x="876" y="406" width="100" height="42" rx="7" fill="#c8e6c9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="926" y="424" text-anchor="middle" font-size="9" font-weight="600" fill="#1b5e20">GitHub</text>
+  <text x="926" y="438" text-anchor="middle" font-size="9" fill="#555">Issues</text>
+
+  <rect x="984" y="406" width="100" height="42" rx="7" fill="#c8e6c9" stroke="#2E7D32" stroke-width="1"/>
+  <text x="1034" y="424" text-anchor="middle" font-size="9" font-weight="600" fill="#1b5e20">Webex</text>
+  <text x="1034" y="438" text-anchor="middle" font-size="9" fill="#555">Alerts</text>
+
+  <!-- Internal arrows -->
+  <line x1="980" y1="222" x2="980" y2="232" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="980" y1="280" x2="980" y2="290" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="980" y1="338" x2="980" y2="348" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="980" y1="396" x2="980" y2="406" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SYSTEM 5: GitOps Baseline  (PROVE)              -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g filter="url(#shadow)">
+    <rect x="1130" y="110" width="240" height="340" rx="10" fill="#fff" stroke="#6A1B9A" stroke-width="2"/>
+    <rect x="1130" y="110" width="240" height="38" rx="10" fill="#6A1B9A"/>
+    <rect x="1130" y="138" width="240" height="10" fill="#6A1B9A"/>
+    <text x="1250" y="135" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">GITOPS BASELINE</text>
+  </g>
+
+  <!-- config_snapshot.yml -->
+  <rect x="1146" y="162" width="208" height="56" rx="7" fill="#f3e5f5" stroke="#6A1B9A" stroke-width="1"/>
+  <text x="1250" y="183" text-anchor="middle" font-size="11" font-weight="600" fill="#4a148c">config_snapshot.yml</text>
+  <text x="1250" y="200" text-anchor="middle" font-size="9" fill="#555">meraki_snapshot role</text>
+  <text x="1250" y="214" text-anchor="middle" font-size="9" fill="#555">Pulls live SSID config</text>
+
+  <!-- baselines/ -->
+  <rect x="1146" y="232" width="208" height="56" rx="7" fill="#f3e5f5" stroke="#6A1B9A" stroke-width="1"/>
+  <text x="1250" y="253" text-anchor="middle" font-size="11" font-weight="600" fill="#4a148c">baselines/</text>
+  <text x="1250" y="270" text-anchor="middle" font-size="9" fill="#555">Per-network SSID snapshots</text>
+  <text x="1250" y="284" text-anchor="middle" font-size="9" fill="#555">YAML config as code</text>
+
+  <!-- git commit -->
+  <rect x="1146" y="298" width="208" height="56" rx="7" fill="#f3e5f5" stroke="#6A1B9A" stroke-width="1"/>
+  <text x="1250" y="319" text-anchor="middle" font-size="11" font-weight="600" fill="#4a148c">Git Commit</text>
+  <text x="1250" y="336" text-anchor="middle" font-size="9" fill="#555">baselines/ + reports/</text>
+  <text x="1250" y="350" text-anchor="middle" font-size="9" fill="#555">Immutable proof of state</text>
+
+  <!-- Reports artifact -->
+  <rect x="1146" y="368" width="208" height="48" rx="7" fill="#f3e5f5" stroke="#6A1B9A" stroke-width="1"/>
+  <text x="1250" y="389" text-anchor="middle" font-size="11" font-weight="600" fill="#4a148c">Compliance Report</text>
+  <text x="1250" y="406" text-anchor="middle" font-size="9" fill="#555">Uploaded as GH artifact</text>
+
+  <!-- Internal arrows -->
+  <line x1="1250" y1="218" x2="1250" y2="232" stroke="#6A1B9A" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <line x1="1250" y1="288" x2="1250" y2="298" stroke="#6A1B9A" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <line x1="1250" y1="354" x2="1250" y2="368" stroke="#6A1B9A" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- CROSS-SYSTEM CONNECTION ARROWS                  -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+
+  <!-- Meraki Workflow -> GitHub repository_dispatch -->
+  <g>
+    <line x1="274" y1="256" x2="336" y2="188" stroke="#0097A7" stroke-width="2.5" marker-end="url(#arrow-teal)"/>
+    <rect x="278" y="200" width="56" height="32" rx="4" fill="#fff" stroke="#0097A7" stroke-width="0.5"/>
+    <text x="306" y="212" text-anchor="middle" font-size="7.5" font-weight="600" fill="#0097A7">POST</text>
+    <text x="306" y="226" text-anchor="middle" font-size="7" fill="#555">/dispatches</text>
+  </g>
+
+  <!-- Meraki Webhook -> GitHub compliance (meraki-config-change) -->
+  <g>
+    <path d="M 274 329 C 300 380, 310 400, 336 416" stroke="#0097A7" stroke-width="2" fill="none" marker-end="url(#arrow-teal)" stroke-dasharray="6,3"/>
+    <rect x="278" y="370" width="62" height="32" rx="4" fill="#fff" stroke="#0097A7" stroke-width="0.5"/>
+    <text x="309" y="382" text-anchor="middle" font-size="7" font-weight="600" fill="#0097A7">config-change</text>
+    <text x="309" y="396" text-anchor="middle" font-size="7" fill="#555">event_type</text>
+  </g>
+
+  <!-- GitHub deploy-ssids -> Ansible -->
+  <g>
+    <line x1="544" y1="342" x2="606" y2="190" stroke="#1565C0" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+    <rect x="548" y="246" width="56" height="32" rx="4" fill="#fff" stroke="#1565C0" stroke-width="0.5"/>
+    <text x="576" y="258" text-anchor="middle" font-size="7.5" font-weight="600" fill="#1565C0">Runs</text>
+    <text x="576" y="272" text-anchor="middle" font-size="7" fill="#555">playbook</text>
+  </g>
+
+  <!-- GitHub compliance -> Compliance Engine -->
+  <g>
+    <line x1="544" y1="416" x2="876" y2="192" stroke="#1565C0" stroke-width="2" marker-end="url(#arrow-blue)" stroke-dasharray="6,3"/>
+    <rect x="688" y="286" width="56" height="32" rx="4" fill="#fff" stroke="#1565C0" stroke-width="0.5"/>
+    <text x="716" y="298" text-anchor="middle" font-size="7.5" font-weight="600" fill="#1565C0">Runs</text>
+    <text x="716" y="312" text-anchor="middle" font-size="7" fill="#555">compliance</text>
+  </g>
+
+  <!-- Ansible -> Meraki API (already shown inside the box) -->
+
+  <!-- Compliance -> GitOps -->
+  <g>
+    <line x1="1084" y1="260" x2="1146" y2="190" stroke="#2E7D32" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+    <rect x="1088" y="205" width="56" height="32" rx="4" fill="#fff" stroke="#2E7D32" stroke-width="0.5"/>
+    <text x="1116" y="217" text-anchor="middle" font-size="7.5" font-weight="600" fill="#2E7D32">Triggers</text>
+    <text x="1116" y="231" text-anchor="middle" font-size="7" fill="#555">snapshot</text>
+  </g>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- FEEDBACK LOOP: Webhook -> re-triggers compliance -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g>
+    <path d="M 1250 416 C 1250 820, 165 820, 165 370" stroke="#888" stroke-width="2" fill="none" stroke-dasharray="8,4" marker-end="url(#arrow-dash)"/>
+  </g>
+
+  <!-- Feedback label -->
+  <rect x="600" y="798" width="220" height="36" rx="8" fill="#fff" stroke="#888" stroke-width="1"/>
+  <text x="710" y="814" text-anchor="middle" font-size="10" font-weight="600" fill="#555">Continuous Loop</text>
+  <text x="710" y="828" text-anchor="middle" font-size="9" fill="#888">Config change webhook re-triggers compliance</text>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- DATA FLOW DETAIL BAR (bottom)                   -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <rect x="30" y="856" width="1340" height="52" rx="8" fill="#1a1a2e" opacity="0.92"/>
+
+  <!-- REQUEST data -->
+  <text x="164" y="878" text-anchor="middle" font-size="9" font-weight="600" fill="#4dd0e1">event_type:</text>
+  <text x="164" y="896" text-anchor="middle" font-size="8.5" fill="#b2ebf2">deploy-ssids</text>
+
+  <!-- PLAN data -->
+  <text x="440" y="878" text-anchor="middle" font-size="9" font-weight="600" fill="#64b5f6">client_payload:</text>
+  <text x="440" y="896" text-anchor="middle" font-size="8.5" fill="#bbdefb">{ssid_name, dry_run, auth_mode, ...}</text>
+
+  <!-- CHANGE data -->
+  <text x="710" y="878" text-anchor="middle" font-size="9" font-weight="600" fill="#ffb74d">API Calls:</text>
+  <text x="710" y="896" text-anchor="middle" font-size="8.5" fill="#ffe0b2">GET networks / PUT ssids / POST group_policies</text>
+
+  <!-- VERIFY data -->
+  <text x="980" y="878" text-anchor="middle" font-size="9" font-weight="600" fill="#81c784">Outputs:</text>
+  <text x="980" y="896" text-anchor="middle" font-size="8.5" fill="#c8e6c9">reports/ + GitHub Issues + Webex</text>
+
+  <!-- PROVE data -->
+  <text x="1250" y="878" text-anchor="middle" font-size="9" font-weight="600" fill="#ce93d8">Artifacts:</text>
+  <text x="1250" y="896" text-anchor="middle" font-size="8.5" fill="#e1bee7">baselines/*.yml + git commit SHA</text>
+
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <!-- SCHEDULE TRIGGER (top-right corner badge)       -->
+  <!-- PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP -->
+  <g transform="translate(860, 460)">
+    <rect x="0" y="0" width="150" height="30" rx="15" fill="#2E7D32" opacity="0.15" stroke="#2E7D32" stroke-width="1"/>
+    <text x="75" y="19" text-anchor="middle" font-size="9" font-weight="600" fill="#2E7D32">Scheduled: every 6h</text>
+  </g>
+
+</svg>

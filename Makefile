@@ -6,7 +6,7 @@ ANSIBLE_GALAXY  := venv/bin/ansible-galaxy
 PIP             := venv/bin/pip
 VAULT_PASS_FILE := .vault_pass
 
-.PHONY: help setup lint test test-templates smoke-test clean deploy-ssid-check compliance-check test-all vault-encrypt vault-decrypt vault-view
+.PHONY: help setup lint test test-templates smoke-test clean deploy-ssid-check compliance-check test-all vault-encrypt vault-decrypt vault-view webhook-server webhook-public
 
 help:
 	@echo "Meraki Wireless Ansible - Available Commands:"
@@ -20,6 +20,8 @@ help:
 	@echo "  make vault-encrypt - Encrypt vault/secrets.yml"
 	@echo "  make vault-decrypt - Decrypt vault/secrets.yml (edit in place)"
 	@echo "  make vault-view    - View vault/secrets.yml contents"
+	@echo "  make webhook-server - Start local Meraki webhook receiver"
+	@echo "  make webhook-public - Start webhook receiver with public Cloudflare tunnel"
 	@echo ""
 
 setup:
@@ -106,6 +108,27 @@ deploy-ssid-check:
 
 compliance-check:
 	@$(ANSIBLE) --syntax-check -i inventory/production.yml playbooks/compliance_check.yml
+
+webhook-server:
+	@if [ ! -f "$(PYTHON)" ]; then echo "Run 'make setup' first."; exit 1; fi
+	@$(PYTHON) scripts/webhook_receiver.py
+
+webhook-public:
+	@if [ ! -f "$(PYTHON)" ]; then echo "Run 'make setup' first."; exit 1; fi
+	@if ! command -v cloudflared >/dev/null 2>&1; then \
+		echo "ERROR: cloudflared not found. Install with: brew install cloudflared"; \
+		exit 1; \
+	fi
+	@$(PYTHON) scripts/webhook_receiver.py & \
+	SERVER_PID=$$!; \
+	sleep 1; \
+	echo ""; \
+	echo "Starting Cloudflare Tunnel → http://localhost:5005 ..."; \
+	echo "Copy the https://*.trycloudflare.com URL below and add /webhooks"; \
+	echo "Paste that into Meraki Dashboard → Alerts → Webhooks → Server URL"; \
+	echo ""; \
+	cloudflared tunnel --url http://localhost:5005 || true; \
+	kill $$SERVER_PID 2>/dev/null
 
 test-all:
 	@echo "Checking all playbooks..."
