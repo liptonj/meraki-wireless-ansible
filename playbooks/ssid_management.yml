@@ -26,6 +26,24 @@
         meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
       tags: always
 
+    - name: Filter SSIDs to scope_ssid when specified
+      ansible.builtin.set_fact:
+        meraki_ssid_configs: >-
+          {{ meraki_ssid_configs | selectattr('name', 'equalto', scope_ssid) | list }}
+      when: scope_ssid is defined and scope_ssid | length > 0
+      tags: always
+
+    - name: Validate scoped SSID exists in config
+      ansible.builtin.assert:
+        that:
+          - meraki_ssid_configs | length > 0
+        fail_msg: >-
+          scope_ssid "{{ scope_ssid }}" not found in meraki_ssids.
+          Available SSIDs: {{ meraki_ssids | default([]) | map(attribute='name') | list | join(', ') }}
+        quiet: true
+      when: scope_ssid is defined and scope_ssid | length > 0
+      tags: always
+
   roles:
     - role: meraki_ssid
 

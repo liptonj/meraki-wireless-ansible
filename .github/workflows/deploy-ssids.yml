@@ -345,6 +345,19 @@ jobs:
             echo "Running in LIVE MODE — SSIDs will be configured on Meraki"
           fi
 
+          EFFECTIVE_SCOPE_SSID="${{ env.INPUT_SCOPE_SSID }}"
+          if [ "$EFFECTIVE_SCOPE_SSID" = "true" ] || [ "$EFFECTIVE_SCOPE_SSID" = "false" ]; then
+            EFFECTIVE_SCOPE_SSID=""
+          fi
+
+          if [ -z "$EFFECTIVE_SCOPE_SSID" ] && [ -n "${{ env.INPUT_SSID_NAME }}" ]; then
+            EFFECTIVE_SCOPE_SSID="${{ env.INPUT_SSID_NAME }}"
+          fi
+
+          if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS -e scope_ssid=${EFFECTIVE_SCOPE_SSID}"
+          fi
+
           ansible-playbook playbooks/ssid_management.yml \
             -i inventory/production.yml \
             $EXTRA_ARGS
