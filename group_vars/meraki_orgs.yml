@@ -23,7 +23,7 @@ meraki_ssids:
   availableOnAllAps: true
   psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
 - name: "Corp-Guest"
-  enabled: false
+  enabled: true
   authMode: "open"
   encryptionMode: "open"
   minBitrate: 11
