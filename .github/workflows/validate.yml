@@ -1,0 +1,307 @@
+name: Validate Ansible
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_networks:
+        description: "Optional comma-separated network names for configure_network.yml and group_policy_management.yml dry-run"
+        required: false
+        default: ""
+      scope_ssid:
+        description: "Optional SSID scope for configure_network.yml dry-run"
+        required: false
+        default: ""
+      ssid_name:
+        description: "Optional SSID name for remove_ssid.yml dry-run"
+        required: false
+        default: ""
+  pull_request:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+    types: [validate-ansible]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint Playbooks and Roles
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint --config-file=.ansible-lint playbooks/ roles/
+
+  syntax-check:
+    name: Syntax Check Playbooks
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Syntax check all playbooks
+        run: |
+          for playbook in playbooks/*.yml; do
+            if [ -f "$playbook" ]; then
+              echo "Checking: $playbook"
+              ansible-playbook --syntax-check -i inventory/production.yml "$playbook" || exit 1
+            fi
+          done
+
+      - name: Validate Jinja2 templates
+        run: |
+          python scripts/validate_jinja_templates.py
+
+  dry-run:
+    name: Dry Run Validation
+    runs-on: ubuntu-latest
+    needs: syntax-check
+
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event_name == 'repository_dispatch'
+      || github.event_name == 'push'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Dry run playbooks (check mode)
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME: ${{ vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ (github.event.inputs.target_networks || github.event.client_payload.target_networks || '') || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK: ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST: ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET: ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
+          INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
+          INPUT_SCOPE_SSID: ${{ github.event.inputs.scope_ssid || github.event.client_payload.scope_ssid || '' }}
+          INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
+        run: |
+          for playbook in playbooks/*.yml; do
+            if [ -f "$playbook" ]; then
+              echo "Testing: $(basename $playbook)"
+
+              INVENTORY="inventory/production.yml"
+
+              EXTRA_ARGS=()
+              if [ "$(basename "$playbook")" = "configure_network.yml" ]; then
+                if [ -z "$INPUT_TARGET_NETWORKS" ]; then
+                  echo "Skipping configure_network.yml: repository_dispatch target_networks not provided"
+                  continue
+                fi
+                EXTRA_ARGS+=("-e" "target_networks=${INPUT_TARGET_NETWORKS}")
+
+                EFFECTIVE_SCOPE_SSID="$INPUT_SCOPE_SSID"
+                if [ "$EFFECTIVE_SCOPE_SSID" = "true" ] || [ "$EFFECTIVE_SCOPE_SSID" = "false" ]; then
+                  EFFECTIVE_SCOPE_SSID=""
+                fi
+
+                if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
+                  EXTRA_ARGS+=("-e" "scope_ssid=${EFFECTIVE_SCOPE_SSID}")
+                fi
+              fi
+
+              if [ "$(basename "$playbook")" = "remove_ssid.yml" ]; then
+                if [ -z "$INPUT_TARGET_NETWORKS" ] || [ -z "$INPUT_SSID_NAME" ]; then
+                  echo "Skipping remove_ssid.yml: target_networks and ssid_name not both provided"
+                  continue
+                fi
+                EXTRA_ARGS+=("-e" "meraki_remove_ssid_name=${INPUT_SSID_NAME}")
+              fi
+
+              if [ "$(basename "$playbook")" = "group_policy_management.yml" ]; then
+                if [ -z "$INPUT_TARGET_NETWORKS" ]; then
+                  echo "Skipping group_policy_management.yml: target_networks not provided"
+                  continue
+                fi
+              fi
+
+              ansible-playbook \
+                --check \
+                --diff \
+                --inventory "$INVENTORY" \
+                "${EXTRA_ARGS[@]}" \
+                "$playbook" || {
+                  echo "Dry-run failed for $(basename $playbook)"
+                  exit 1
+                }
+            fi
+          done
+
+  security-scan:
+    name: Security Scan for Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install detect-secrets
+        run: |
+          pip install detect-secrets
+
+      - name: Scan for secrets
+        run: |
+          if [ ! -f .secrets.baseline ]; then
+            detect-secrets scan \
+              --exclude-files '\.lock$|\.log$|\.cache$|\.git/|\.github/' \
+              --exclude-lines 'password.*=.*example|api.*key.*=.*example|#.*test|#.*example|MERAKI.*=.*your|vault_.*:.*"{{' \
+              . > .secrets.baseline || true
+          fi
+
+          detect-secrets scan \
+            --exclude-files '\.lock$|\.log$|\.cache$|\.git/|\.github/' \
+            --exclude-lines 'password.*=.*example|api.*key.*=.*example|#.*test|#.*example|MERAKI.*=.*your|vault_.*:.*"{{' \
+            --baseline .secrets.baseline \
+            . || {
+              echo "New secrets detected or baseline changed!"
+              echo "Review the findings above and ensure no real secrets are committed."
+              echo "If these are false positives, update .secrets.baseline"
+              exit 1
+          }
+
+      - name: Upload secrets baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secrets-baseline
+          path: .secrets.baseline
+          retention-days: 30
+
+  validate:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [lint, syntax-check, dry-run, security-scan]
+    if: always()
+
+    steps:
+      - name: Check validation status
+        run: |
+          echo "Validation Pipeline Summary"
+          echo ""
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Syntax Check: ${{ needs.syntax-check.result }}"
+
+          if [ "${{ needs.dry-run.result }}" == "skipped" ]; then
+            echo "Dry Run: skipped (secrets not available)"
+          else
+            echo "Dry Run: ${{ needs.dry-run.result }}"
+          fi
+
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo ""
+
+          FAILED=0
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "Lint job failed"
+            FAILED=1
+          fi
+          if [ "${{ needs.syntax-check.result }}" != "success" ]; then
+            echo "Syntax check job failed"
+            FAILED=1
+          fi
+          if [ "${{ needs.dry-run.result }}" != "success" ] && [ "${{ needs.dry-run.result }}" != "skipped" ]; then
+            echo "Dry run job failed"
+            FAILED=1
+          fi
+          if [ "${{ needs.security-scan.result }}" != "success" ]; then
+            echo "Security scan job failed"
+            FAILED=1
+          fi
+
+          if [ $FAILED -eq 1 ]; then
+            echo "Validation pipeline failed. Please review the errors above."
+            exit 1
+          fi

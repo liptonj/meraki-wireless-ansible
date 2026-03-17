@@ -1,0 +1,440 @@
+---
+# Meraki Wireless Compliance Check Playbook
+# Detects configuration drift and generates compliance reports
+#
+# Usage:
+#   ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml
+#   ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --check --diff
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Run Compliance Checks on Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: true
+
+  vars:
+    compliance_report_dir: "{{ playbook_dir }}/../reports"
+    compliance_report_filename: "compliance_report_{{ ansible_date_time.epoch }}.md"
+    compliance_aggregator_host: "{{ ansible_play_hosts_all | last | default('') }}"
+
+  pre_tasks:
+    - name: Ensure reports directory exists
+      ansible.builtin.file:
+        path: "{{ compliance_report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      when: inventory_hostname == compliance_aggregator_host
+      tags: always
+
+  roles:
+    - role: meraki_compliance
+      vars:
+        desired_ssid_configs: "{{ meraki_desired_ssids | default([]) }}"
+
+  post_tasks:
+    - name: Collect per-network compliance details
+      ansible.builtin.set_fact:
+        compliance_network_details: >-
+          {{
+            groups['meraki_networks'] | default([])
+            | map('extract', hostvars)
+            | selectattr('network_compliance', 'defined')
+            | map(attribute='network_compliance')
+            | list
+          }}
+      when: inventory_hostname == compliance_aggregator_host
+      tags: always
+
+    - name: Aggregate compliance results across all discovered networks
+      ansible.builtin.set_fact:
+        compliance_results:
+          networks_checked: "{{ compliance_network_details | length }}"
+          networks_compliant: "{{ compliance_network_details | selectattr('compliant', 'equalto', true) | list | length }}"
+          networks_non_compliant: "{{ compliance_network_details | selectattr('compliant', 'equalto', false) | list | length }}"
+          ssids_checked: "{{ compliance_network_details | map(attribute='ssids') | flatten | list | length }}"
+          ssids_compliant: "{{ compliance_network_details | map(attribute='ssids') | flatten | selectattr('compliant', 'equalto', true) | list | length }}"
+          ssids_non_compliant: "{{ compliance_network_details | map(attribute='ssid_non_compliant_count') | map('int') | sum }}"
+          group_policies_checked: "{{ compliance_network_details | map(attribute='group_policies') | flatten | list | length }}"
+          group_policies_non_compliant: "{{ compliance_network_details | map(attribute='group_policy_non_compliant_count') | map('int') | sum }}"
+          security_critical_count: "{{ compliance_network_details | map(attribute='security_critical_count') | map('int') | sum }}"
+          security_warning_count: "{{ compliance_network_details | map(attribute='security_warning_count') | map('int') | sum }}"
+          security_passed: "{{ (compliance_network_details | map(attribute='security_critical_count') | map('int') | sum) == 0 }}"
+          network_details: "{{ compliance_network_details }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          playbook_mode: "{{ 'CHECK MODE (DRY-RUN)' if ansible_check_mode else 'LIVE MODE' }}"
+      when: inventory_hostname == compliance_aggregator_host
+      tags: always
+
+    - name: Generate compliance report
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/meraki_compliance/templates/compliance_report.md.j2"
+        dest: "{{ compliance_report_dir }}/{{ compliance_report_filename }}"
+        mode: '0644'
+      vars:
+        compliance_data: "{{ compliance_results }}"
+      delegate_to: localhost
+      when: inventory_hostname == compliance_aggregator_host
+      tags:
+        - compliance
+        - reporting
+
+    - name: Display compliance summary
+      ansible.builtin.debug:
+        msg: |
+          Compliance check completed!
+
+          Total Networks Checked: {{ compliance_results.networks_checked | default(0) }}
+          Networks Compliant: {{ compliance_results.networks_compliant | default(0) }}
+          Networks Non-Compliant: {{ compliance_results.networks_non_compliant | default(0) }}
+          Total SSIDs Checked: {{ compliance_results.ssids_checked | default(0) }}
+          SSIDs Compliant: {{ compliance_results.ssids_compliant | default(0) }}
+          SSIDs Non-Compliant: {{ compliance_results.ssids_non_compliant | default(0) }}
+          Group Policies Checked: {{ compliance_results.group_policies_checked | default(0) }}
+          Group Policies Non-Compliant: {{ compliance_results.group_policies_non_compliant | default(0) }}
+
+          Report saved to: {{ compliance_report_dir }}/{{ compliance_report_filename }}
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+      tags: always
+
+    - name: Set compliance failure flag
+      ansible.builtin.set_fact:
+        compliance_failed: "{{ (compliance_results.networks_non_compliant | default(0) | int) > 0 }}"
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+      tags: always
+
+    - name: Build violation summary for alerts
+      ansible.builtin.set_fact:
+        violation_summary: |
+          {% set non_compliant_networks = compliance_results.network_details
+             | default([])
+             | selectattr('compliant', 'equalto', false)
+             | list %}
+          {% if non_compliant_networks | length == 0 %}
+          - No non-compliant network details were captured.
+          {% else %}
+          {% for network in non_compliant_networks %}
+          - **Network:** `{{ network.network_name }}` (`{{ network.network_id }}`)
+          {% if network.network_dashboard_url | default('') | length > 0 %}
+            - Dashboard: [Open Network Dashboard]({{ network.network_dashboard_url }})
+          {% endif %}
+          {% set drifted_ssids = network.ssids
+             | default([])
+             | selectattr('drift_detected', 'equalto', true)
+             | list %}
+          {% set security_violations = network.security_violations | default([]) %}
+          {% if drifted_ssids | length > 0 %}
+            - SSID Drift:
+          {% for ssid in drifted_ssids %}
+              - `{{ ssid.name }}`:
+          {% for field, values in ssid.differences.items() %}
+                - `{{ field }}`: `{{ values.current }}` -> `{{ values.desired }}`
+          {% endfor %}
+          {% endfor %}
+          {% endif %}
+          {% if security_violations | length > 0 %}
+            - Security Violations:
+          {% for violation in security_violations %}
+              - [{{ violation.severity | upper }}] {{ violation.message }}
+                (`{{ violation.current_value }}` -> `{{ violation.expected }}`)
+          {% endfor %}
+          {% endif %}
+          {% if (drifted_ssids | length == 0) and (security_violations | length == 0) %}
+            - Network is non-compliant, but no per-item details were collected.
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+        - compliance_failed | default(false) | bool
+      tags: always
+
+    - name: Create GitHub Issue for compliance violation
+      ansible.builtin.uri:
+        url: >-
+          https://api.github.com/repos/{{ compliance_github_repo }}/issues
+        method: POST
+        headers:
+          Authorization: "Bearer {{ compliance_github_token }}"
+          Accept: "application/vnd.github+json"
+        body_format: json
+        body:
+          title: >-
+            Wireless Compliance Violation -
+            {{ ansible_date_time.date }}
+          body: |
+            ## Wireless Compliance Violation Detected
+
+            **Date:** {{ ansible_date_time.iso8601 }}
+            **Severity:** High
+
+            ### Summary
+
+            | Metric | Count |
+            |--------|-------|
+            | Networks Checked | {{ compliance_results.networks_checked }} |
+            | Networks Non-Compliant | {{ compliance_results.networks_non_compliant }} |
+            | SSIDs Non-Compliant | {{ compliance_results.ssids_non_compliant }} |
+            | Group Policies Non-Compliant | {{ compliance_results.group_policies_non_compliant }} |
+
+            ### Non-Compliant Networks and Findings
+
+            {{ violation_summary }}
+
+            ### Remediation
+
+            For SSID drift, run the SSID management playbook to restore compliance:
+            ```
+            ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml
+            ```
+
+            For group policy ACL findings, review the affected group policies in Meraki Dashboard
+            and re-run the focused audit:
+            ```
+            ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --tags group-policy-acl
+            ```
+
+            ---
+            *Auto-generated by Ansible Compliance Check*
+          labels:
+            - compliance-violation
+            - wireless
+            - automated
+        status_code: [201]
+      delegate_to: localhost
+      no_log: true
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_failed | default(false) | bool
+        - compliance_github_alert_enabled | default(false) | bool
+        - compliance_github_repo | default('') | length > 0
+        - compliance_github_token | default('') | length > 0
+      tags:
+        - alerting
+        - github
+
+    - name: Build Webex card violation details
+      ansible.builtin.set_fact:
+        webex_primary_network_name: >-
+          {{
+            compliance_results.network_details
+            | default([])
+            | selectattr('compliant', 'equalto', false)
+            | map(attribute='network_name')
+            | list
+            | first
+            | default('Meraki Dashboard')
+          }}
+        webex_primary_dashboard_url: >-
+          {{
+            (
+              compliance_results.network_details
+              | default([])
+              | selectattr('compliant', 'equalto', false)
+              | map(attribute='network_dashboard_url')
+              | reject('equalto', '')
+              | list
+              | first
+            )
+            | default('https://dashboard.meraki.com', true)
+          }}
+        webex_card_checks_text: |
+          {% set non_compliant_networks = compliance_results.network_details
+             | default([])
+             | selectattr('compliant', 'equalto', false)
+             | list %}
+          {% if non_compliant_networks | length == 0 %}
+          ✅ No non-compliant networks found.
+          {% else %}
+          {% for network in non_compliant_networks %}
+          {{ network.network_name }}:
+          - Network compliance: {{ '✅ PASS' if network.compliant else '❌ FAIL' }}
+          - SSID drift check: {{ '✅ PASS' if (network.drift_count | default(0) | int) == 0 else '❌ FAIL (' ~ (network.drift_count | default(0) | string) ~ ' drifted SSID(s))' }}
+          {% set no_open_auth_failures = network.security_violations
+             | default([])
+             | selectattr('rule', 'equalto', 'no_open_auth')
+             | list
+             | length %}
+          - Open authentication check: {{ '✅ PASS' if no_open_auth_failures == 0 else '❌ FAIL (' ~ (no_open_auth_failures | string) ~ ')' }}
+          {% set minimum_encryption_failures = network.security_violations
+             | default([])
+             | selectattr('rule', 'equalto', 'minimum_encryption')
+             | list
+             | length %}
+          - Minimum encryption check: {{ '✅ PASS' if minimum_encryption_failures == 0 else '❌ FAIL (' ~ (minimum_encryption_failures | string) ~ ')' }}
+          {% set guest_bandwidth_failures = network.security_violations
+             | default([])
+             | selectattr('rule', 'equalto', 'guest_bandwidth_limits')
+             | list
+             | length %}
+          - Guest bandwidth check: {{ '✅ PASS' if guest_bandwidth_failures == 0 else '❌ FAIL (' ~ (guest_bandwidth_failures | string) ~ ')' }}
+          {% set group_policy_acl_failures = network.security_violations
+             | default([])
+             | selectattr('rule', 'match', '^group_policy_')
+             | list
+             | length %}
+          - Group policy ACL check: {{ '✅ PASS' if group_policy_acl_failures == 0 else '❌ FAIL (' ~ (group_policy_acl_failures | string) ~ ')' }}
+          {% endfor %}
+          {% endif %}
+        webex_card_failed_text: |
+          {% set non_compliant_networks = compliance_results.network_details
+             | default([])
+             | selectattr('compliant', 'equalto', false)
+             | list %}
+          {% if non_compliant_networks | length == 0 %}
+          No non-compliant network details were captured.
+          {% else %}
+          {% for network in non_compliant_networks %}
+          Network: {{ network.network_name }} ({{ network.network_id }})
+          {% if network.network_dashboard_url | default('') | length > 0 %}
+          Dashboard: {{ network.network_dashboard_url }}
+          {% endif %}
+          {% set critical_violations = network.security_violations
+             | default([])
+             | selectattr('severity', 'equalto', 'critical')
+             | list %}
+          {% if critical_violations | length > 0 %}
+          {% for violation in critical_violations %}
+          - 🔴 {{ violation.message }} ({{ violation.current_value }} -> {{ violation.expected }})
+          {% endfor %}
+          {% else %}
+          - ✅ No critical SSID violations listed.
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+        - compliance_failed | default(false) | bool
+      tags:
+        - alerting
+        - webex
+        - webex-bot
+
+    - name: Build Webex adaptive card payload
+      ansible.builtin.set_fact:
+        webex_compliance_card:
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
+          type: "AdaptiveCard"
+          version: "1.0"
+          body:
+            - type: "TextBlock"
+              text: "Wireless Compliance Violation"
+              weight: "bolder"
+              size: "medium"
+            - type: "TextBlock"
+              text: "{{ ansible_date_time.iso8601 }}"
+              size: "small"
+              isSubtle: true
+            - type: "TextBlock"
+              text: >-
+                {{ compliance_results.networks_non_compliant | default(0) }} network(s)
+                and {{ compliance_results.ssids_non_compliant | default(0) }} SSID(s)
+                are non-compliant. Group policy ACL findings:
+                {{ compliance_results.group_policies_non_compliant | default(0) }}.
+              wrap: true
+            - type: "TextBlock"
+              text: "Checks"
+              weight: "bolder"
+              spacing: "small"
+            - type: "TextBlock"
+              text: "{{ webex_card_checks_text }}"
+              wrap: true
+              size: "small"
+            - type: "TextBlock"
+              text: "Failed Items"
+              weight: "bolder"
+              spacing: "small"
+            - type: "TextBlock"
+              text: "{{ webex_card_failed_text }}"
+              wrap: true
+              size: "small"
+            - type: "TextBlock"
+              text: "Remediation: ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --tags group-policy-acl"
+              wrap: true
+              size: "small"
+          actions:
+            - type: "Action.OpenUrl"
+              title: "Open {{ webex_primary_network_name }} Dashboard"
+              url: "{{ webex_primary_dashboard_url }}"
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+        - compliance_failed | default(false) | bool
+      tags:
+        - alerting
+        - webex
+        - webex-bot
+
+    - name: Send Webex Teams notification for compliance violation
+      ansible.builtin.uri:
+        url: "{{ compliance_webex_webhook_url }}"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          markdown: |
+            Wireless Compliance Violation detected. See adaptive card for details.
+            Open dashboard URL: {{ webex_primary_dashboard_url }}
+          attachments:
+            - contentType: "application/vnd.microsoft.card.adaptive"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
+        status_code: 200
+        validate_certs: true
+      delegate_to: localhost
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_failed | default(false) | bool
+        - compliance_webex_alert_enabled | default(false) | bool
+        - compliance_webex_webhook_url | default('') | length > 0
+      tags:
+        - alerting
+        - webex
+
+    - name: Send Webex Bot adaptive card for compliance violation
+      ansible.builtin.uri:
+        url: "https://webexapis.com/v1/messages"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ compliance_webex_bot_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          toPersonEmail: "{{ compliance_webex_alert_email }}"
+          markdown: |
+            Wireless Compliance Violation detected. See adaptive card for details.
+            Open dashboard URL: {{ webex_primary_dashboard_url }}
+          attachments:
+            - contentType: "application/vnd.microsoft.card.adaptive"
+              content: "{{ webex_compliance_card | to_json | from_json }}"
+        status_code: 200
+        validate_certs: true
+      delegate_to: localhost
+      no_log: true
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_failed | default(false) | bool
+        - compliance_webex_bot_enabled | default(false) | bool
+        - compliance_webex_bot_token | default('') | length > 0
+        - compliance_webex_alert_email | default('') | length > 0
+      tags:
+        - alerting
+        - webex
+        - webex-bot
+
+    - name: Compliance check passed - no alerts needed
+      ansible.builtin.debug:
+        msg: "All networks are compliant. No alerts triggered."
+      when:
+        - inventory_hostname == compliance_aggregator_host
+        - compliance_results is defined
+        - not (compliance_failed | default(false) | bool)
+      tags: always

@@ -1,0 +1,182 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - meraki_api_key | length > 0
+      - meraki_network_id is defined and meraki_network_id | length > 0
+    fail_msg: >-
+      Missing required variables: meraki_api_key and meraki_network_id must be set.
+    quiet: true
+  tags:
+    - group-policy
+    - validate
+
+- name: Resolve desired group policies for this network
+  ansible.builtin.set_fact:
+    meraki_group_policy_configs: >-
+      {{
+        meraki_desired_group_policies
+        | default([])
+        | selectattr('network_name', 'equalto', inventory_hostname)
+        | map(attribute='policies')
+        | first
+        | default([])
+      }}
+  changed_when: false
+  tags:
+    - group-policy
+
+- name: Validate desired group policies exist for this network
+  ansible.builtin.assert:
+    that:
+      - meraki_group_policy_configs | length > 0
+    fail_msg: >-
+      No desired group policies are defined for network {{ inventory_hostname }}
+      in group_vars/meraki_group_policies.yml.
+    quiet: true
+  tags:
+    - group-policy
+
+- name: Gather current group policies from Meraki
+  cisco.meraki.networks_group_policies_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: current_group_policies
+  retries: "{{ meraki_group_policy_api_retries }}"
+  delay: "{{ meraki_group_policy_api_retry_delay }}"
+  until: current_group_policies is not failed
+  changed_when: false
+  when: meraki_group_policy_configs | length > 0
+  tags:
+    - group-policy
+    - gather
+
+- name: Build group policy action plan
+  ansible.builtin.set_fact:
+    meraki_group_policy_plan: >-
+      {{
+        (meraki_group_policy_plan | default([])) + [{
+          'config': item,
+          'existing': existing_policy,
+          'action': (
+            'create'
+            if existing_policy | length == 0
+            else (
+              'update'
+              if desired_policy_comparison != existing_policy_comparison
+              else 'noop'
+            )
+          )
+        }]
+      }}
+  loop: "{{ meraki_group_policy_configs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    existing_policy: >-
+      {{
+        current_group_policies.meraki_response
+        | default([])
+        | selectattr('name', 'equalto', item.name)
+        | first
+        | default({})
+      }}
+    desired_firewall: "{{ item.firewallAndTrafficShaping | default({}) }}"
+    existing_firewall: "{{ existing_policy.firewallAndTrafficShaping | default({}) }}"
+    desired_bandwidth: "{{ item.bandwidth | default({}) }}"
+    existing_bandwidth: "{{ existing_policy.bandwidth | default({}) }}"
+    desired_content_filtering: "{{ item.contentFiltering | default({}) }}"
+    existing_content_filtering: "{{ existing_policy.contentFiltering | default({}) }}"
+    desired_vlan_tagging: "{{ item.vlanTagging | default({}) }}"
+    existing_vlan_tagging: "{{ existing_policy.vlanTagging | default({}) }}"
+    desired_policy_comparison:
+      name: "{{ item.name }}"
+      firewallAndTrafficShaping:
+        settings: "{{ desired_firewall.settings | default('') }}"
+        l3FirewallRules: "{{ desired_firewall.l3FirewallRules | default([]) }}"
+        l7FirewallRules: "{{ desired_firewall.l7FirewallRules | default([]) }}"
+        trafficShapingRules: "{{ desired_firewall.trafficShapingRules | default([]) }}"
+      bandwidth:
+        settings: "{{ desired_bandwidth.settings | default('') }}"
+        bandwidthLimits: "{{ desired_bandwidth.bandwidthLimits | default({}) }}"
+      contentFiltering:
+        allowedUrlPatterns: "{{ desired_content_filtering.allowedUrlPatterns | default({}) }}"
+        blockedUrlCategories: "{{ desired_content_filtering.blockedUrlCategories | default({}) }}"
+        blockedUrlPatterns: "{{ desired_content_filtering.blockedUrlPatterns | default({}) }}"
+      splashAuthSettings: "{{ item.splashAuthSettings | default('') }}"
+      vlanTagging:
+        settings: "{{ desired_vlan_tagging.settings | default('') }}"
+        vlanId: "{{ desired_vlan_tagging.vlanId | default('') }}"
+    existing_policy_comparison:
+      name: "{{ existing_policy.name | default('') }}"
+      firewallAndTrafficShaping:
+        settings: "{{ existing_firewall.settings | default('') }}"
+        l3FirewallRules: "{{ existing_firewall.l3FirewallRules | default([]) }}"
+        l7FirewallRules: "{{ existing_firewall.l7FirewallRules | default([]) }}"
+        trafficShapingRules: "{{ existing_firewall.trafficShapingRules | default([]) }}"
+      bandwidth:
+        settings: "{{ existing_bandwidth.settings | default('') }}"
+        bandwidthLimits: "{{ existing_bandwidth.bandwidthLimits | default({}) }}"
+      contentFiltering:
+        allowedUrlPatterns: "{{ existing_content_filtering.allowedUrlPatterns | default({}) }}"
+        blockedUrlCategories: "{{ existing_content_filtering.blockedUrlCategories | default({}) }}"
+        blockedUrlPatterns: "{{ existing_content_filtering.blockedUrlPatterns | default({}) }}"
+      splashAuthSettings: "{{ existing_policy.splashAuthSettings | default('') }}"
+      vlanTagging:
+        settings: "{{ existing_vlan_tagging.settings | default('') }}"
+        vlanId: "{{ existing_vlan_tagging.vlanId | default('') }}"
+  when: meraki_group_policy_configs | length > 0
+  tags:
+    - group-policy
+    - compare
+
+- name: Preview group policy changes in check mode
+  ansible.builtin.debug:
+    msg: >-
+      CHECK MODE: would {{ item.action }} group policy "{{ item.config.name }}"
+      on network {{ inventory_hostname }}
+  loop: "{{ meraki_group_policy_plan | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when:
+    - ansible_check_mode
+    - item.action != 'noop'
+  changed_when: true
+  tags:
+    - group-policy
+
+- name: Apply desired group policies
+  cisco.meraki.networks_group_policies:
+    state: present
+    networkId: "{{ meraki_network_id }}"
+    groupPolicyId: "{{ item.existing.groupPolicyId | default(omit) }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+    name: "{{ item.config.name }}"
+    firewallAndTrafficShaping: "{{ item.config.firewallAndTrafficShaping | default(omit) }}"
+    bandwidth: "{{ item.config.bandwidth | default(omit) }}"
+    contentFiltering: "{{ item.config.contentFiltering | default(omit) }}"
+    splashAuthSettings: "{{ item.config.splashAuthSettings | default(omit) }}"
+    vlanTagging: "{{ item.config.vlanTagging | default(omit) }}"
+  loop: "{{ meraki_group_policy_plan | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when:
+    - not ansible_check_mode
+    - item.action != 'noop'
+  register: meraki_group_policy_results
+  retries: "{{ meraki_group_policy_api_retries }}"
+  delay: "{{ meraki_group_policy_api_retry_delay }}"
+  tags:
+    - group-policy
+    - configure
+
+- name: Display group policy action summary
+  ansible.builtin.debug:
+    msg: >-
+      Group policy actions for {{ inventory_hostname }}:
+      create={{ meraki_group_policy_plan | default([]) | selectattr('action', 'equalto', 'create') | list | length }},
+      update={{ meraki_group_policy_plan | default([]) | selectattr('action', 'equalto', 'update') | list | length }},
+      noop={{ meraki_group_policy_plan | default([]) | selectattr('action', 'equalto', 'noop') | list | length }}
+  when: meraki_group_policy_configs | length > 0
+  tags:
+    - group-policy

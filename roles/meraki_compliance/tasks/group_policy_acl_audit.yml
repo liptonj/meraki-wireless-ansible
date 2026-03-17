@@ -1,0 +1,184 @@
+---
+- name: Gather current group policies from Meraki
+  cisco.meraki.networks_group_policies_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: current_group_policies
+  retries: "{{ meraki_compliance_api_retries }}"
+  delay: "{{ meraki_compliance_api_retry_delay }}"
+  until: current_group_policies is not failed
+  changed_when: false
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+    - gather
+
+- name: Validate Meraki group policy response payload exists
+  ansible.builtin.assert:
+    that:
+      - current_group_policies.meraki_response is defined
+      - current_group_policies.meraki_response is iterable
+    fail_msg: >-
+      Failed to retrieve group policy ACL data for network
+      {{ meraki_network_id | default(inventory_hostname) }}.
+      Ensure API connectivity and permissions are valid.
+    quiet: true
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+    - gather
+
+- name: Evaluate group policy ACL posture
+  ansible.builtin.set_fact:
+    network_compliance: >-
+      {{
+        network_compliance | combine({
+          'group_policies': network_compliance.group_policies + [group_policy_check_result]
+        })
+      }}
+  loop: "{{ current_group_policies.meraki_response | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('Group Policy ' ~ (item.groupPolicyId | default('unknown') | string)) }}"
+  vars:
+    current_group_policy: "{{ item }}"
+    group_policy_firewall: "{{ current_group_policy.firewallAndTrafficShaping | default({}) }}"
+    group_policy_firewall_settings: "{{ group_policy_firewall.settings | default('network default') }}"
+    l3_firewall_rules: "{{ group_policy_firewall.l3FirewallRules | default([]) }}"
+    l7_firewall_rules: "{{ group_policy_firewall.l7FirewallRules | default([]) }}"
+    group_policy_violations: >-
+      {%- set ns = namespace(violations=[]) -%}
+      {%- if meraki_compliance_group_policy_acl_rules.custom_policies_require_acl.enabled | default(true)
+            and group_policy_firewall_settings == 'custom'
+            and l3_firewall_rules | length == 0
+            and l7_firewall_rules | length == 0 -%}
+      {%- set ns.violations = ns.violations + [{
+            'group_policy_name': current_group_policy.name | default('Unknown'),
+            'group_policy_id': current_group_policy.groupPolicyId | default('unknown'),
+            'rule': 'group_policy_custom_without_acl',
+            'severity': meraki_compliance_group_policy_acl_rules.custom_policies_require_acl.severity | default('warning'),
+            'message': 'Group policy "' ~ (current_group_policy.name | default('Unknown')) ~ '" has custom firewall settings but no L3 or L7 ACL rules',
+            'current_value': 'l3=' ~ (l3_firewall_rules | length | string) ~ ', l7=' ~ (l7_firewall_rules | length | string),
+            'expected': 'At least one L3 or L7 ACL rule'
+          }] -%}
+      {%- endif -%}
+      {%- for acl_rule in l3_firewall_rules -%}
+      {%- set acl_policy = acl_rule.policy | default('') | string | lower -%}
+      {%- set acl_protocol = acl_rule.protocol | default('any') | string | lower -%}
+      {%- set acl_dest_port = acl_rule.destPort | default('any') | string | lower -%}
+      {%- set acl_dest_cidr = acl_rule.destCidr | default('any') | string | lower -%}
+      {%- if meraki_compliance_group_policy_acl_rules.allow_any_any_l3.enabled | default(true)
+            and acl_policy == 'allow'
+            and acl_protocol in ['any', '*']
+            and acl_dest_port in ['any', '*']
+            and acl_dest_cidr in ['any', '0.0.0.0/0', '::/0'] -%}
+      {%- set ns.violations = ns.violations + [{
+            'group_policy_name': current_group_policy.name | default('Unknown'),
+            'group_policy_id': current_group_policy.groupPolicyId | default('unknown'),
+            'rule': 'group_policy_allow_any_any',
+            'severity': meraki_compliance_group_policy_acl_rules.allow_any_any_l3.severity | default('critical'),
+            'message': 'Group policy "' ~ (current_group_policy.name | default('Unknown')) ~ '" contains an allow any/any L3 ACL rule',
+            'current_value': (
+              'policy=' ~ (acl_rule.policy | default('allow') | string)
+              ~ ', protocol=' ~ (acl_rule.protocol | default('any') | string)
+              ~ ', destPort=' ~ (acl_rule.destPort | default('any') | string)
+              ~ ', destCidr=' ~ (acl_rule.destCidr | default('any') | string)
+            ),
+            'expected': 'Restrictive destination CIDR and/or destination port'
+          }] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.violations }}
+    group_policy_check_result:
+      name: "{{ current_group_policy.name | default('Unknown') }}"
+      groupPolicyId: "{{ current_group_policy.groupPolicyId | default('unknown') }}"
+      firewall_settings: "{{ group_policy_firewall_settings }}"
+      l3_rule_count: "{{ l3_firewall_rules | length }}"
+      l7_rule_count: "{{ l7_firewall_rules | length }}"
+      compliant: "{{ (group_policy_violations | length) == 0 }}"
+      violations: "{{ group_policy_violations }}"
+  when:
+    - current_group_policies.meraki_response is defined
+    - current_group_policies.meraki_response | length > 0
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+    - compare
+
+- name: Merge group policy ACL audit results into network compliance
+  ansible.builtin.set_fact:
+    network_compliance: >-
+      {{
+        network_compliance | combine({
+          'group_policy_non_compliant_count': (
+            network_compliance.group_policies
+            | default([])
+            | selectattr('compliant', 'equalto', false)
+            | list
+            | length
+          ),
+          'group_policy_violation_count': group_policy_security_violations | length,
+          'security_violations': combined_security_violations,
+          'security_critical_count': (
+            combined_security_violations
+            | selectattr('severity', 'equalto', 'critical')
+            | list
+            | length
+          ),
+          'security_warning_count': (
+            combined_security_violations
+            | selectattr('severity', 'equalto', 'warning')
+            | list
+            | length
+          ),
+          'security_passed': (combined_security_violations | length == 0),
+          'compliant': network_compliance.compliant and (
+            group_policy_security_violations
+            | selectattr('severity', 'equalto', 'critical')
+            | list
+            | length == 0
+          )
+        })
+      }}
+  vars:
+    group_policy_security_violations: >-
+      {{
+        network_compliance.group_policies
+        | default([])
+        | map(attribute='violations')
+        | flatten
+        | list
+      }}
+    combined_security_violations: >-
+      {{
+        (network_compliance.security_violations | default([]))
+        + group_policy_security_violations
+      }}
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+
+- name: Display group policy ACL audit summary
+  ansible.builtin.debug:
+    msg: |
+      Group policy ACL audit: {{ 'PASS' if (network_compliance.group_policy_violation_count | default(0) | int) == 0 else 'FAIL' }}
+      Group policies checked: {{ network_compliance.group_policies | default([]) | length }}
+      Non-compliant group policies: {{ network_compliance.group_policy_non_compliant_count | default(0) }}
+
+      {% for policy in network_compliance.group_policies | default([]) %}
+      {% if not policy.compliant %}
+      Group policy "{{ policy.name }}" ({{ policy.groupPolicyId }}):
+        {% for violation in policy.violations %}
+        - [{{ violation.severity | upper }}] {{ violation.message }}
+          Current: {{ violation.current_value }}
+          Expected: {{ violation.expected }}
+        {% endfor %}
+      {% endif %}
+      {% endfor %}
+  tags:
+    - compliance
+    - security
+    - group-policy-acl

@@ -1,0 +1,120 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - meraki_api_key | length > 0
+      - meraki_network_id is defined and meraki_network_id | length > 0
+      - meraki_remove_ssid_name | string | trim | length > 0
+    fail_msg: >-
+      Missing required variables: meraki_api_key, meraki_network_id,
+      and meraki_remove_ssid_name must all be set.
+    quiet: true
+  tags:
+    - ssid
+    - remove
+    - validate
+
+- name: Display SSID removal plan
+  ansible.builtin.debug:
+    msg: >-
+      Will remove SSID "{{ meraki_remove_ssid_name }}" from
+      network {{ meraki_network_id }}
+  tags:
+    - ssid
+    - remove
+
+- name: Get current SSIDs from Meraki
+  cisco.meraki.networks_wireless_ssids_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: current_ssids_result
+  retries: "{{ meraki_ssid_remove_api_retries }}"
+  delay: "{{ meraki_ssid_remove_api_retry_delay }}"
+  until: current_ssids_result is not failed
+  tags:
+    - ssid
+    - remove
+    - gather
+
+- name: Find matching SSID slot by name
+  ansible.builtin.set_fact:
+    meraki_ssid_remove_matches: >-
+      {{
+        current_ssids_result.meraki_response | default([])
+        | selectattr('name', 'equalto', meraki_remove_ssid_name)
+        | list
+      }}
+  changed_when: false
+  tags:
+    - ssid
+    - remove
+
+- name: Validate exactly one SSID matched the requested name
+  ansible.builtin.assert:
+    that:
+      - meraki_ssid_remove_matches | length == 1
+    fail_msg: >-
+      SSID "{{ meraki_remove_ssid_name }}" was not found exactly once on
+      network "{{ meraki_network_name_resolved | default(meraki_network_id) }}".
+      Available SSIDs: {{
+        current_ssids_result.meraki_response | default([])
+        | map(attribute='name') | list | join(', ')
+      }}
+    quiet: false
+  tags:
+    - ssid
+    - remove
+    - validate
+
+- name: Set target SSID slot facts
+  ansible.builtin.set_fact:
+    meraki_ssid_remove_target: "{{ meraki_ssid_remove_matches | first }}"
+    # Meraki slot numbers are zero-based; the default placeholder label is one-based.
+    meraki_ssid_remove_placeholder_name: "Unconfigured SSID {{ (meraki_ssid_remove_matches | first).number | int + 1 }}"
+  changed_when: false
+  tags:
+    - ssid
+    - remove
+
+- name: Preview SSID removal in check mode
+  ansible.builtin.debug:
+    msg: >-
+      CHECK MODE: would reset SSID "{{ meraki_remove_ssid_name }}"
+      on slot {{ meraki_ssid_remove_target.number }} to
+      "{{ meraki_ssid_remove_placeholder_name }}"
+  when: ansible_check_mode
+  changed_when: true
+  tags:
+    - ssid
+    - remove
+
+- name: Reset SSID slot to unconfigured state
+  cisco.meraki.networks_wireless_ssids:
+    networkId: "{{ meraki_network_id }}"
+    number: "{{ meraki_ssid_remove_target.number }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+    name: "{{ meraki_ssid_remove_placeholder_name }}"
+    enabled: false
+    authMode: open
+    encryptionMode: open
+    visible: true
+    availableOnAllAps: true
+  when: not ansible_check_mode
+  register: meraki_ssid_remove_result
+  retries: "{{ meraki_ssid_remove_api_retries }}"
+  delay: "{{ meraki_ssid_remove_api_retry_delay }}"
+  notify: Log SSID changes
+  tags:
+    - ssid
+    - remove
+    - configure
+
+- name: Display SSID removal results
+  ansible.builtin.debug:
+    msg: >-
+      SSID "{{ meraki_remove_ssid_name }}" reset from slot
+      {{ meraki_ssid_remove_target.number }} to
+      "{{ meraki_ssid_remove_placeholder_name }}"
+  tags:
+    - ssid
+    - remove

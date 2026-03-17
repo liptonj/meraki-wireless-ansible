@@ -1,0 +1,221 @@
+---
+# configure_network.yml
+#
+# Native Ansible playbook — updates group_vars/meraki_networks.yml with the
+# compliance desired state for one or more target networks, then writes the
+# file back to disk. Git commit / push is handled by the calling workflow.
+#
+# Required extra vars:
+#   target_networks   Comma-separated list of Meraki network names
+#                     e.g. -e "target_networks=Site-A,Site-C"
+#
+# Optional extra vars:
+#   scope_ssid        Restrict to a single SSID already defined in meraki_orgs.yml.
+#                     Leave blank (or omit) to include ALL SSIDs.
+#                     e.g. -e "scope_ssid=Corp-Secure"
+
+- name: Update Network Compliance Desired State
+  hosts: localhost
+  gather_facts: true
+  become: false
+  connection: local
+
+  vars:
+    meraki_orgs_path: "{{ playbook_dir }}/../group_vars/meraki_orgs.yml"
+    meraki_networks_path: "{{ playbook_dir }}/../group_vars/meraki_networks.yml"
+
+    # Parse comma-separated target_networks into a clean list
+    target_network_list: >-
+      {{ target_networks.split(',') | map('trim') | select | list
+         if (target_networks is defined and target_networks | length > 0)
+         else [] }}
+
+    # Fields to copy into the compliance desired state — no PSK / RADIUS secrets
+    compliance_fields:
+      - name
+      - enabled
+      - authMode
+      - encryptionMode
+      - wpaEncryptionMode
+      - visible
+      - minBitrate
+      - bandSelection
+
+  pre_tasks:
+    - name: Validate target_networks is provided
+      ansible.builtin.assert:
+        that:
+          - target_networks is defined
+          - target_networks | length > 0
+          - target_network_list | length > 0
+        fail_msg: >-
+          target_networks extra var must be provided and non-empty.
+          Example: -e "target_networks=Site-A,Site-C"
+        quiet: true
+
+    - name: Normalize optional scope_ssid
+      ansible.builtin.set_fact:
+        scope_ssid_normalized: "{{ scope_ssid | string | trim if scope_ssid is defined else '' }}"
+
+    - name: Validate scope_ssid is a real SSID name when provided
+      ansible.builtin.assert:
+        that:
+          - scope_ssid_normalized | lower not in ['true', 'false']
+        fail_msg: >-
+          scope_ssid received invalid boolean-like value "{{ scope_ssid_normalized }}".
+          Pass an SSID name such as -e "scope_ssid=Corp-Secure", or omit scope_ssid
+          to include all SSIDs.
+        quiet: true
+      when: scope_ssid_normalized | length > 0
+
+  tasks:
+
+    # ── Load source SSID definitions ─────────────────────────────────────────
+    - name: Load meraki_orgs.yml for SSID definitions
+      ansible.builtin.include_vars:
+        file: "{{ meraki_orgs_path }}"
+        name: orgs_config
+
+    - name: Select SSIDs to include in desired state
+      ansible.builtin.set_fact:
+        source_ssids: >-
+          {{ orgs_config.meraki_ssids | default([])
+             | selectattr('name', 'equalto', scope_ssid_normalized) | list
+             if (scope_ssid_normalized | length > 0)
+             else orgs_config.meraki_ssids | default([]) }}
+
+    - name: Fail if scope_ssid is set but not found
+      ansible.builtin.assert:
+        that:
+          - source_ssids | length > 0
+        fail_msg: >-
+          SSID "{{ scope_ssid_normalized }}" not found in group_vars/meraki_orgs.yml.
+          Available SSIDs: {{ orgs_config.meraki_ssids | default([]) | map(attribute='name') | list | join(', ') }}
+        quiet: false
+      when: scope_ssid_normalized | length > 0
+
+    - name: Build compliance SSID entries (secrets excluded)
+      ansible.builtin.set_fact:
+        compliance_ssids: >-
+          {{
+            compliance_ssids | default([]) + [(
+              {
+                'name':         item.name,
+                'enabled':      item.enabled      | default(true),
+                'authMode':     item.authMode     | default('psk'),
+                'encryptionMode': (
+                  'open'
+                  if item.authMode | default('psk') == 'open'
+                  else 'wpa'
+                ),
+                'visible':      item.visible      | default(true),
+                'broadcast':    item.visible      | default(true),
+                'minBitrate':   item.minBitrate   | default(11),
+                'bandSelection': item.bandSelection | default('Dual band operation')
+              }
+              | combine(
+                  {} if item.authMode | default('psk') == 'open'
+                  else {
+                    'wpaEncryptionMode': item.wpaEncryptionMode | default(
+                      'WPA3 Transition Mode'
+                      if item.encryptionMode | default('') == 'wpa3'
+                      else 'WPA2 only'
+                    )
+                  }
+                )
+            )]
+          }}
+      loop: "{{ source_ssids }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Log SSIDs that will be added to desired state
+      ansible.builtin.debug:
+        msg: >-
+          SSIDs to write: {{ compliance_ssids | map(attribute='name') | list | join(', ') }}
+          Target networks: {{ target_network_list | join(', ') }}
+
+    # ── Load and merge desired state ─────────────────────────────────────────
+    - name: Load current meraki_networks.yml
+      ansible.builtin.include_vars:
+        file: "{{ meraki_networks_path }}"
+        name: networks_config
+
+    - name: Upsert each target network into desired state
+      # Uses Jinja2 namespace() to mutate variables inside loops.
+      # For each target network:
+      #   - If the network does not exist: append a new entry with all compliance SSIDs.
+      #   - If it exists: upsert each SSID by name (update if found, append if new).
+      ansible.builtin.set_fact:
+        updated_desired_ssids: >-
+          {%- set result = namespace(networks=networks_config.meraki_desired_ssids | default([]) | list) -%}
+
+          {%- for target in target_network_list -%}
+
+            {# Find this network in the current list #}
+            {%- set net_idx = namespace(val=-1) -%}
+            {%- for i in range(result.networks | length) -%}
+              {%- if result.networks[i].network_name == target -%}
+                {%- set net_idx.val = i -%}
+              {%- endif -%}
+            {%- endfor -%}
+
+            {%- if net_idx.val == -1 -%}
+              {# Network is new — add with all compliance SSIDs #}
+              {%- set new_net = {'network_name': target, 'ssids': compliance_ssids} -%}
+              {%- set result.networks = result.networks + [new_net] -%}
+
+            {%- else -%}
+              {# Network exists — upsert each SSID #}
+              {%- set existing_ssids = namespace(list=result.networks[net_idx.val].ssids | default([]) | list) -%}
+
+              {%- for new_ssid in compliance_ssids -%}
+                {%- set ssid_idx = namespace(val=-1) -%}
+                {%- for j in range(existing_ssids.list | length) -%}
+                  {%- if existing_ssids.list[j].name == new_ssid.name -%}
+                    {%- set ssid_idx.val = j -%}
+                  {%- endif -%}
+                {%- endfor -%}
+
+                {%- if ssid_idx.val == -1 -%}
+                  {%- set existing_ssids.list = existing_ssids.list + [new_ssid] -%}
+                {%- else -%}
+                  {%- set existing_ssids.list = (
+                        existing_ssids.list[:ssid_idx.val]
+                        + [new_ssid]
+                        + existing_ssids.list[ssid_idx.val + 1:]
+                      ) -%}
+                {%- endif -%}
+              {%- endfor -%}
+
+              {%- set updated_net = result.networks[net_idx.val] | combine({'ssids': existing_ssids.list}) -%}
+              {%- set result.networks = (
+                    result.networks[:net_idx.val]
+                    + [updated_net]
+                    + result.networks[net_idx.val + 1:]
+                  ) -%}
+            {%- endif -%}
+
+          {%- endfor -%}
+          {{ result.networks }}
+
+    # ── Write updated file ────────────────────────────────────────────────────
+    - name: Write updated meraki_networks.yml
+      ansible.builtin.copy:
+        dest: "{{ meraki_networks_path }}"
+        content: "---\n# Compliance Desired State — used by compliance_check.yml.\n\
+          # Any deviation from these values is flagged as drift.\n#\n\
+          # network_name must match the Meraki network name exactly.\n\
+          # Networks not listed here will have no desired config to compare against.\n\
+          # Last updated: {{ ansible_date_time.iso8601 }} via configure_network.yml\n\
+          meraki_desired_ssids:\n\
+          {{ updated_desired_ssids | to_nice_yaml(indent=2) | indent(2, first=True) }}"
+        mode: "0644"
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          configure_network.yml complete.
+          Networks processed: {{ target_network_list | join(', ') }}
+          SSIDs in desired state: {{ compliance_ssids | map(attribute='name') | list | join(', ') }}
+          File written: {{ meraki_networks_path }}

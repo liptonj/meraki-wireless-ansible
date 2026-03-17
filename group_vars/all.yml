@@ -1,0 +1,49 @@
+---
+# Global Defaults — applies to every host in every inventory.
+# SSID definitions belong in group-specific files (meraki_orgs.yml for deployment, meraki_networks.yml for compliance).
+
+# Meraki API Configuration
+meraki_base_url: "https://api.meraki.com/api/v1"
+meraki_api_timeout: 30
+meraki_api_retries: 3
+meraki_api_retry_delay: 2
+# Meraki API limit: ~5 requests/second per API key
+meraki_rate_limit: 4
+
+# Access Point (AP) Configuration
+meraki_ap_name_pattern: "{network_name}-AP-{serial[-6:]}"
+
+meraki_ap_tags:
+  - "managed-by-ansible"
+
+meraki_ap_config:
+  ledLightsOn: true
+  uplinkClientSampling:
+    enabled: true
+    url: ""
+
+# Compliance and Validation Settings
+meraki_compliance_check_enabled: true
+
+meraki_compliance_rules:
+  - name: "encryption_standard"
+    check: "all_ssids_use_wpa2_or_wpa3"
+    severity: "error"
+
+  - name: "psk_strength"
+    check: "psk_min_length_8"
+    severity: "warning"
+
+  - name: "guest_bandwidth_limits"
+    check: "guest_ssids_have_bandwidth_limits"
+    severity: "warning"
+
+# Operational Settings
+meraki_dry_run: false
+meraki_validate_changes: true
+meraki_log_changes: true
+meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.json"
+
+# Ansible Configuration
+ansible_python_interpreter: auto_silent
+ansible_connection: local

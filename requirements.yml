@@ -1,0 +1,7 @@
+---
+collections:
+  - name: cisco.meraki
+    version: "2.22.0"
+
+  - name: community.general
+    version: "12.4.0"

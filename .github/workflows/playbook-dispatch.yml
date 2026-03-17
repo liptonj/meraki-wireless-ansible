@@ -1,0 +1,323 @@
+name: Webhook Playbook Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      playbook:
+        description: "Playbook to run"
+        required: true
+        default: "ssid_management.yml"
+        type: choice
+        options:
+          - ssid_management.yml
+          - remove_ssid.yml
+          - group_policy_management.yml
+          - compliance_check.yml
+          - config_snapshot.yml
+          - configure_network.yml
+      dry_run:
+        description: "Run in check mode (no live changes)"
+        required: true
+        default: true
+        type: boolean
+      target_networks:
+        description: "Comma-separated network names (required for configure_network.yml, remove_ssid.yml, and group_policy_management.yml)"
+        required: false
+        default: ""
+      scope_ssid:
+        description: "Optional SSID scope (for configure_network.yml)"
+        required: false
+        default: ""
+      ssid_name:
+        description: "SSID name to remove (required for remove_ssid.yml)"
+        required: false
+        default: ""
+      commit_changes:
+        description: "Commit baseline/network-state file changes back to repo"
+        required: true
+        default: false
+        type: boolean
+  repository_dispatch:
+    types:
+      - run-playbook
+      - run-ssid-management
+      - run-remove-ssid
+      - run-group-policy-management
+      - run-compliance-check
+      - run-config-snapshot
+      - run-configure-network
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  INPUT_PLAYBOOK: ${{ github.event.inputs.playbook || github.event.client_payload.playbook || '' }}
+  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
+  INPUT_SCOPE_SSID: ${{ github.event.inputs.scope_ssid || github.event.client_payload.scope_ssid || '' }}
+  INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
+  INPUT_COMMIT_CHANGES: ${{ github.event.inputs.commit_changes || (github.event.client_payload.commit_changes != null && format('{0}', github.event.client_payload.commit_changes)) || 'false' }}
+
+concurrency:
+  group: playbook-dispatch-${{ github.event.action || github.event.inputs.playbook || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  run-playbook:
+    name: Run Selected Playbook
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Resolve selected playbook
+        id: select
+        run: |
+          SELECTED="${{ env.INPUT_PLAYBOOK }}"
+
+          if [ -z "$SELECTED" ] && [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            case "${{ github.event.action }}" in
+              run-ssid-management)
+                SELECTED="ssid_management.yml"
+                ;;
+              run-remove-ssid)
+                SELECTED="remove_ssid.yml"
+                ;;
+              run-group-policy-management)
+                SELECTED="group_policy_management.yml"
+                ;;
+              run-compliance-check)
+                SELECTED="compliance_check.yml"
+                ;;
+              run-config-snapshot)
+                SELECTED="config_snapshot.yml"
+                ;;
+              run-configure-network)
+                SELECTED="configure_network.yml"
+                ;;
+              run-playbook)
+                ;;
+              *)
+                echo "::error::Unsupported repository_dispatch action: ${{ github.event.action }}"
+                exit 1
+                ;;
+            esac
+          fi
+
+          case "$SELECTED" in
+            ssid_management.yml|playbooks/ssid_management.yml)
+              PLAYBOOK_PATH="playbooks/ssid_management.yml"
+              ;;
+            remove_ssid.yml|playbooks/remove_ssid.yml)
+              PLAYBOOK_PATH="playbooks/remove_ssid.yml"
+              ;;
+            group_policy_management.yml|playbooks/group_policy_management.yml)
+              PLAYBOOK_PATH="playbooks/group_policy_management.yml"
+              ;;
+            compliance_check.yml|playbooks/compliance_check.yml)
+              PLAYBOOK_PATH="playbooks/compliance_check.yml"
+              ;;
+            config_snapshot.yml|playbooks/config_snapshot.yml)
+              PLAYBOOK_PATH="playbooks/config_snapshot.yml"
+              ;;
+            configure_network.yml|playbooks/configure_network.yml)
+              PLAYBOOK_PATH="playbooks/configure_network.yml"
+              ;;
+            *)
+              echo "::error::Invalid playbook '$SELECTED'. Allowed: ssid_management.yml, remove_ssid.yml, group_policy_management.yml, compliance_check.yml, config_snapshot.yml, configure_network.yml"
+              exit 1
+              ;;
+          esac
+
+          if [ "$PLAYBOOK_PATH" = "playbooks/configure_network.yml" ] && [ -z "${{ env.INPUT_TARGET_NETWORKS }}" ]; then
+            echo "::error::target_networks is required for configure_network.yml"
+            exit 1
+          fi
+
+          if [ "$PLAYBOOK_PATH" = "playbooks/remove_ssid.yml" ]; then
+            if [ -z "${{ env.INPUT_TARGET_NETWORKS }}" ]; then
+              echo "::error::target_networks is required for remove_ssid.yml"
+              exit 1
+            fi
+
+            if [ -z "${{ env.INPUT_SSID_NAME }}" ]; then
+              echo "::error::ssid_name is required for remove_ssid.yml"
+              exit 1
+            fi
+          fi
+
+          if [ "$PLAYBOOK_PATH" = "playbooks/group_policy_management.yml" ] && [ -z "${{ env.INPUT_TARGET_NETWORKS }}" ]; then
+            echo "::error::target_networks is required for group_policy_management.yml"
+            exit 1
+          fi
+
+          echo "playbook=$PLAYBOOK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Write Ansible Vault password file
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          if [ -n "$ANSIBLE_VAULT_PASSWORD" ]; then
+            echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
+          fi
+
+      - name: Validate requested group policy seed targets
+        if: ${{ steps.select.outputs.playbook == 'playbooks/group_policy_management.yml' }}
+        env:
+          TARGET_NETWORKS: ${{ env.INPUT_TARGET_NETWORKS }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          import yaml
+
+          target_networks = [
+              item.strip()
+              for item in os.environ.get("TARGET_NETWORKS", "").split(",")
+              if item.strip()
+          ]
+
+          payload = yaml.safe_load(Path("group_vars/meraki_group_policies.yml").read_text()) or {}
+          desired = payload.get("meraki_desired_group_policies", [])
+          configured = {
+              entry.get("network_name")
+              for entry in desired
+              if entry.get("network_name") and entry.get("policies")
+          }
+          missing = [network for network in target_networks if network not in configured]
+
+          if missing:
+              print(
+                  "::error::No desired group policy definitions found for: "
+                  + ", ".join(missing)
+              )
+              sys.exit(1)
+          PY
+
+      - name: Run selected playbook
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME: ${{ github.event.client_payload.meraki_org_name || vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ env.INPUT_TARGET_NETWORKS || github.event.client_payload.meraki_network_names || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK: ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST: ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET: ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PLAYBOOK="${{ steps.select.outputs.playbook }}"
+          EXTRA_ARGS=()
+
+          if [ -f .vault_pass ]; then
+            EXTRA_ARGS+=("--vault-password-file" ".vault_pass")
+          fi
+
+          if [ "${{ env.INPUT_DRY_RUN }}" = "true" ]; then
+            EXTRA_ARGS+=("--check" "--diff")
+          fi
+
+          if [ "$PLAYBOOK" = "playbooks/configure_network.yml" ]; then
+            EXTRA_ARGS+=("-e" "target_networks=${{ env.INPUT_TARGET_NETWORKS }}")
+            EFFECTIVE_SCOPE_SSID="${{ env.INPUT_SCOPE_SSID }}"
+            if [ "$EFFECTIVE_SCOPE_SSID" = "true" ] || [ "$EFFECTIVE_SCOPE_SSID" = "false" ]; then
+              EFFECTIVE_SCOPE_SSID=""
+            fi
+            if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
+              EXTRA_ARGS+=("-e" "scope_ssid=${EFFECTIVE_SCOPE_SSID}")
+            fi
+          fi
+
+          if [ "$PLAYBOOK" = "playbooks/remove_ssid.yml" ]; then
+            EXTRA_ARGS+=("-e" "meraki_remove_ssid_name=${{ env.INPUT_SSID_NAME }}")
+          fi
+
+          if [ "$PLAYBOOK" = "playbooks/compliance_check.yml" ]; then
+            EXTRA_ARGS+=("-e" "compliance_github_repo=${{ github.repository }}")
+            EXTRA_ARGS+=("-e" "compliance_github_token=${GITHUB_TOKEN}")
+          fi
+
+          ansible-playbook "$PLAYBOOK" \
+            -i inventory/production.yml \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Commit changed baseline/state files
+        if: ${{ env.INPUT_COMMIT_CHANGES == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baselines/ group_vars/meraki_networks.yml
+
+          if git diff --cached --quiet; then
+            echo "No baseline/state file changes to commit."
+          else
+            git commit -m "chore(dispatch): update generated state files [run #${{ github.run_number }}] [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          fi
+
+      - name: Remove vault password file
+        if: always()
+        run: rm -f .vault_pass
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Webhook Playbook Dispatch" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | \`${{ github.event_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dispatch Action | \`${{ github.event.action || '(n/a)' }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Playbook | \`${{ steps.select.outputs.playbook }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry Run | \`${{ env.INPUT_DRY_RUN }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Target Networks | \`${{ env.INPUT_TARGET_NETWORKS || '(default)' }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Scope SSID | \`${{ env.INPUT_SCOPE_SSID || '(none)' }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SSID Name | \`${{ env.INPUT_SSID_NAME || '(n/a)' }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit Changes | \`${{ env.INPUT_COMMIT_CHANGES }}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  post-group-policy-compliance:
+    name: Post-Seed Compliance Check
+    needs: [run-playbook]
+    if: >-
+      needs.run-playbook.result == 'success'
+      && (github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && (github.event.inputs.playbook || github.event.client_payload.playbook || github.event.action || '') != ''
+      && (
+        (github.event.inputs.playbook || github.event.client_payload.playbook || '') == 'group_policy_management.yml'
+        || github.event.action == 'run-group-policy-management'
+      )
+    uses: ./.github/workflows/compliance.yml
+    with:
+      meraki_org_name: ${{ github.event.client_payload.meraki_org_name || '' }}
+      meraki_network_names: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
+      trigger_source: "post-group-policy-seed"
+    secrets: inherit

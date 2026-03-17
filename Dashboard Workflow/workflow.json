@@ -1,0 +1,911 @@
+{
+    "workflow": {
+      "unique_name": "definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC",
+      "name": "Ansible SSID Deploy",
+      "title": "Ansible SSID Deploy",
+      "type": "generic.workflow",
+      "base_type": "workflow",
+      "variables": [
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "local",
+            "name": "Local - Org Name",
+            "type": "datatype.string",
+            "description": "Resolved Organization Name",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSYJWV0YF6Wid7NLBEpvbNBwg1A2",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+          "properties": {
+            "value": [
+              {
+                "column_data": {
+                  "optionLabel": "psk",
+                  "optionValue": "psk"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "8021x-radius",
+                  "optionValue": "8021x-radius"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "open",
+                  "optionValue": "open"
+                }
+              }
+            ],
+            "scope": "input",
+            "name": "Input - Auth Mode",
+            "type": "datatype.table",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4CGCZG5UNF6vvyVYN6tRsK4zOAfkvMFd",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "output",
+            "name": "Output - Error Message",
+            "type": "datatype.string",
+            "description": "Error message if workflow fails",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRT1BQ31NXXn9YgBj5pvVlekgMwiH",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+          "properties": {
+            "value": [
+              {
+                "column_data": {
+                  "optionLabel": " Corp-Secure",
+                  "optionValue": " Corp-Secur"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "Corp-Guest",
+                  "optionValue": "Corp-Guest"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "test",
+                  "optionValue": "test"
+                }
+              }
+            ],
+            "scope": "input",
+            "name": "Input - SSID Name",
+            "type": "datatype.table",
+            "description": "Allowed SSID name",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4DOGJNBOT216mSOUX0C5MFAeu09oe8yY",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.boolean",
+          "properties": {
+            "value": false,
+            "scope": "input",
+            "name": "Input - Dry Run",
+            "type": "datatype.boolean",
+            "description": "Whether to perform a dry run",
+            "is_required": true,
+            "display_on_wizard": true,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSXGFZ530ByLkfciFaVuYKCtukfL",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+          "properties": {
+            "value": [
+              {
+                "column_data": {
+                  "optionLabel": "wpa3",
+                  "optionValue": "wpa3"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "wpa2",
+                  "optionValue": "wpa2"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "wpa",
+                  "optionValue": "wpa"
+                }
+              }
+            ],
+            "scope": "input",
+            "name": "Input - Encryption Mode",
+            "type": "datatype.table",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4CIQ7XM3HW2nS6t6Z2DgXPx4Gicn013H",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "LabNet",
+            "scope": "local",
+            "name": "Input - Organization Name",
+            "type": "datatype.string",
+            "description": "The name of the Meraki organization",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSU98E5bMFZVYAmHDeoP7EuYMpyV",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "local",
+            "name": "Local - Payload",
+            "type": "datatype.string",
+            "description": "GitHub Dispatch Payload",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSZDR51gDbTDZALny8sRsHo5OTip",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+          "properties": {
+            "value": [
+              {
+                "column_data": {
+                  "optionLabel": "Dual band operation",
+                  "optionValue": "Dual band operation"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "5 GHz band only",
+                  "optionValue": "5 GHz band only"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "2.4 GHz band only",
+                  "optionValue": "2.4 GHz band only"
+                }
+              }
+            ],
+            "scope": "input",
+            "name": "Input - Band Selection",
+            "type": "datatype.table",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4CD1TVFAMS0HUVgNs5MzTFHozIrYRUSX",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "LAB-Site1",
+            "scope": "input",
+            "name": "Input - Network Name",
+            "type": "datatype.string",
+            "description": "The name of the Meraki network",
+            "is_required": true,
+            "display_on_wizard": true,
+            "is_invisible": false,
+            "variable_string_format": "text"
+          },
+          "unique_name": "variable_workflow_02U4BHKRSULPQ0xQM3PqxsdUUwkvpI2kPof",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "Success",
+            "scope": "output",
+            "name": "Output - Status",
+            "type": "datatype.string",
+            "description": "Workflow execution status",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRT0XVR1A9NUfpe1NgHEIKSo2Pygl",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "local",
+            "name": "Local - Network Name",
+            "type": "datatype.string",
+            "description": "Resolved Network Name",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSYT1D6V3lsVN81kE9cscZqhNRlz",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "local",
+            "name": "Local - Org ID",
+            "type": "datatype.string",
+            "description": "Resolved Organization ID",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSYB8V71q9pQJOLitsGCk6XzCJ8s",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+          "properties": {
+            "value": [
+              {
+                "column_data": {
+                  "optionLabel": "CORP_SECURE_PSK",
+                  "optionValue": "CORP_SECURE_PSK"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "GUEST_SSID_PSK",
+                  "optionValue": "GUEST_SSID_PSK"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "CORPORATE_BYOD_PSK",
+                  "optionValue": "CORPORATE_BYOD_PSK"
+                }
+              },
+              {
+                "column_data": {
+                  "optionLabel": "IOT_SSID_PSK",
+                  "optionValue": "IOT_SSID_PSK"
+                }
+              }
+            ],
+            "scope": "input",
+            "name": "Input - PSK Secret",
+            "type": "datatype.table",
+            "description": "Predefined PSK",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4CETFGWSG31hfYvjTHxistiBQoC6g9sC",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.boolean",
+          "properties": {
+            "value": false,
+            "scope": "input",
+            "name": "Input - SSID Visible",
+            "type": "datatype.boolean",
+            "description": "Whether the SSID is visible",
+            "is_required": true,
+            "display_on_wizard": true,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSWTKW5YxvDw2AWRuvDMX6hRJVRW",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.boolean",
+          "properties": {
+            "value": true,
+            "scope": "input",
+            "name": "Input - SSID Enabled",
+            "type": "datatype.boolean",
+            "description": "Whether the SSID is enabled",
+            "is_required": true,
+            "display_on_wizard": true,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSWKOS6gBLQh27POOj4WVD6eQs9r",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.integer",
+          "properties": {
+            "value": 0,
+            "scope": "local",
+            "name": "Local - HTTP Status",
+            "type": "datatype.integer",
+            "description": "HTTP status code from GitHub call",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSZV8D1JgKc5M9fS3gZ0ta04Lsod",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.integer",
+          "properties": {
+            "value": 0,
+            "scope": "local",
+            "name": "Local - Status Code",
+            "type": "datatype.integer",
+            "description": "Status code from sub-workflow calls",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L",
+          "object_type": "variable_workflow"
+        },
+        {
+          "schema_id": "datatype.string",
+          "properties": {
+            "value": "",
+            "scope": "output",
+            "name": "Output - Summary",
+            "type": "datatype.string",
+            "description": "Markdown summary of the workflow execution",
+            "is_required": false,
+            "display_on_wizard": false,
+            "is_invisible": false,
+            "variable_string_format": ""
+          },
+          "unique_name": "variable_workflow_02U4BHKRT0NNM4ZGd5wpHz13d0DWSSc7JF3",
+          "object_type": "variable_workflow"
+        }
+      ],
+      "properties": {
+        "atomic": {
+          "is_atomic": false
+        },
+        "delete_workflow_instance": false,
+        "description": "Allows a user to create or update an Ansible-managed SSID by triggering the Meraki Wireless Ansible GitHub dispatch workflow.",
+        "display_name": "Ansible SSID Deploy",
+        "runtime_user": {
+          "target_default": true
+        },
+        "target": {
+          "target_type": "meraki.endpoint",
+          "specify_on_workflow_start": true
+        }
+      },
+      "object_type": "definition_workflow",
+      "actions": [
+        {
+          "unique_name": "definition_activity_02U4BHKRT1NOX5bCKCvt3k51FJPOAGNkjRC",
+          "name": "Get Organization",
+          "title": "Get Organization",
+          "type": "workflow.sub_workflow",
+          "base_type": "subworkflow",
+          "properties": {
+            "continue_on_failure": true,
+            "display_name": "Get Organization",
+            "input": {
+              "variable_workflow_02M605GTHU5L72i8goD4nuYixYOvQEFV7rN": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSU98E5bMFZVYAmHDeoP7EuYMpyV$",
+              "variable_workflow_02M605GTI1LUG737lDLyzxnE9jwENJNQ08W": false
+            },
+            "runtime_user": {
+              "target_default": true
+            },
+            "skip_execution": false,
+            "target": {
+              "target_type": "meraki.endpoint",
+              "use_workflow_target": true
+            },
+            "workflow_id": "definition_workflow_02M605GS81XN44qr4RBWrJ6Zazk7k0ArIYX",
+            "workflow_name": "Meraki - Get Organization By Name or ID"
+          },
+          "object_type": "definition_activity"
+        },
+        {
+          "unique_name": "definition_activity_02U4BHKRT1XVC1l8Zlxpu7NxmNMB9n4gkHl",
+          "name": "Store Org Outputs",
+          "title": "Store Org Outputs",
+          "type": "core.set_multiple_variables",
+          "base_type": "activity",
+          "properties": {
+            "continue_on_failure": false,
+            "display_name": "Store Org Outputs",
+            "skip_execution": false,
+            "variables_to_update": [
+              {
+                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYB8V71q9pQJOLitsGCk6XzCJ8s$",
+                "variable_value_new": "$activity.definition_activity_02U4BHKRT1NOX5bCKCvt3k51FJPOAGNkjRC.output.variable_workflow_02M605GTJITQP1fcLQlR8CLYAHoMomGWZvE$"
+              },
+              {
+                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYJWV0YF6Wid7NLBEpvbNBwg1A2$",
+                "variable_value_new": "$activity.definition_activity_02U4BHKRT1NOX5bCKCvt3k51FJPOAGNkjRC.output.variable_workflow_02M605GTI9MS96oJT1lTU8xUOEZTdwk6xz6$"
+              },
+              {
+                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                "variable_value_new": "$activity.definition_activity_02U4BHKRT1NOX5bCKCvt3k51FJPOAGNkjRC.output.variable_workflow_02M605GTHEWOW4TGG1xjMEivKqrrMbc2hM3$"
+              }
+            ]
+          },
+          "object_type": "definition_activity"
+        },
+        {
+          "unique_name": "definition_activity_02U4BHKRT2LZD3RLsHDArU5gBfUZur6xPkg",
+          "name": "Check Org Status",
+          "title": "Check Org Status",
+          "type": "logic.if_else",
+          "base_type": "activity",
+          "properties": {
+            "continue_on_failure": false,
+            "display_name": "Check Org Status",
+            "skip_execution": false
+          },
+          "object_type": "definition_activity",
+          "blocks": [
+            {
+              "unique_name": "definition_activity_02U4BHKRT2WZ63N9yx8TDlGWcQjdF1Qkm9X",
+              "name": "Org Found",
+              "title": "Org Found",
+              "type": "logic.condition_block",
+              "base_type": "activity",
+              "properties": {
+                "condition": {
+                  "left_operand": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                  "operator": "eq",
+                  "right_operand": 200
+                },
+                "continue_on_failure": false,
+                "display_name": "Org Found",
+                "skip_execution": false
+              },
+              "object_type": "definition_activity",
+              "actions": [
+                {
+                  "unique_name": "definition_activity_02U4BHKRT374I12jLiHINvncYYwqd7Z0Rkv",
+                  "name": "Get Network",
+                  "title": "Get Network",
+                  "type": "workflow.sub_workflow",
+                  "base_type": "subworkflow",
+                  "properties": {
+                    "continue_on_failure": true,
+                    "display_name": "Get Network",
+                    "input": {
+                      "variable_workflow_02LCRACABYWD40LVa27k00YndGuostARjdp": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYB8V71q9pQJOLitsGCk6XzCJ8s$",
+                      "variable_workflow_02LCRAQ5WICDM3PgxFwKyi19yaeu1bTpVUx": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4BHKRSULPQ0xQM3PqxsdUUwkvpI2kPof$",
+                      "variable_workflow_02LEUF5N782ES5q1O7K4p1AoMBPrkkcxi1E": false,
+                      "variable_workflow_02Q7QAYO3GMXK1F8eC0UiZ7xRXnHB5k71O7": ""
+                    },
+                    "runtime_user": {
+                      "target_default": true
+                    },
+                    "skip_execution": false,
+                    "target": {
+                      "target_type": "meraki.endpoint",
+                      "use_workflow_target": true
+                    },
+                    "workflow_id": "definition_workflow_02LCR4UKH38PM6zDR4Bx2b2J165gCF1mhvh",
+                    "workflow_name": "Meraki - Get Network By Name or ID"
+                  },
+                  "object_type": "definition_activity"
+                },
+                {
+                  "unique_name": "definition_activity_02U4BHKRT3Q0M6d37PQ0JZ5zdSwDHp1Qjzw",
+                  "name": "Store Network Outputs",
+                  "title": "Store Network Outputs",
+                  "type": "core.set_multiple_variables",
+                  "base_type": "activity",
+                  "properties": {
+                    "continue_on_failure": false,
+                    "display_name": "Store Network Outputs",
+                    "skip_execution": false,
+                    "variables_to_update": [
+                      {
+                        "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYT1D6V3lsVN81kE9cscZqhNRlz$",
+                        "variable_value_new": "$activity.definition_activity_02U4BHKRT374I12jLiHINvncYYwqd7Z0Rkv.output.variable_workflow_02L9B69LOW6KC27b8GQsEFf9U0YVtWKz8Ii$"
+                      },
+                      {
+                        "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                        "variable_value_new": "$activity.definition_activity_02U4BHKRT374I12jLiHINvncYYwqd7Z0Rkv.output.variable_workflow_02LCS9H7YNIYX1GDaReaAe3aek2b4CnpPEW$"
+                      }
+                    ]
+                  },
+                  "object_type": "definition_activity"
+                },
+                {
+                  "unique_name": "definition_activity_02U4BHKRT40L31XrNoCQXEyVp5TzSmTiFB1",
+                  "name": "Check Network Status",
+                  "title": "Check Network Status",
+                  "type": "logic.if_else",
+                  "base_type": "activity",
+                  "properties": {
+                    "continue_on_failure": false,
+                    "display_name": "Check Network Status",
+                    "skip_execution": false
+                  },
+                  "object_type": "definition_activity",
+                  "blocks": [
+                    {
+                      "unique_name": "definition_activity_02U4BHKRT49QC3oQrGVQE3QUPqyJvjPL2FV",
+                      "name": "Network Found",
+                      "title": "Network Found",
+                      "type": "logic.condition_block",
+                      "base_type": "activity",
+                      "properties": {
+                        "condition": {
+                          "left_operand": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                          "operator": "eq",
+                          "right_operand": 200
+                        },
+                        "continue_on_failure": false,
+                        "display_name": "Network Found",
+                        "skip_execution": false
+                      },
+                      "object_type": "definition_activity",
+                      "actions": [
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT4N3N3ymvz68wWZ4fHI4HVCAo4d",
+                          "name": "Build Payload",
+                          "title": "Build Payload",
+                          "type": "python3.script",
+                          "base_type": "activity",
+                          "properties": {
+                            "action_timeout": 180,
+                            "continue_on_failure": false,
+                            "display_name": "Build Payload",
+                            "script": "import sys\nimport json\n\nnet_name = sys.argv[1]\nssid_name = sys.argv[2]\nauth_mode = sys.argv[3]\nenc_mode = sys.argv[4]\nband = sys.argv[5]\nenabled = sys.argv[6].lower() == 'true'\nvisible = sys.argv[7].lower() == 'true'\ndry_run = sys.argv[8].lower() == 'true'\npsk = sys.argv[9]\n\npayload = {\n    \"event_type\": \"deploy-ssids\",\n    \"client_payload\": {\n        \"target_networks\": net_name,\n        \"ssid_name\": ssid_name,\n        \"auth_mode\": auth_mode,\n        \"encryption_mode\": enc_mode,\n        \"band_selection\": band,\n        \"ssid_enabled\": enabled,\n        \"ssid_visible\": visible,\n        \"dry_run\": dry_run\n    }\n}\n\nif auth_mode == 'psk' and psk:\n    payload[\"client_payload\"][\"psk_secret\"] = psk\n\nresult = json.dumps(payload)\n",
+                            "script_arguments": [
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYT1D6V3lsVN81kE9cscZqhNRlz$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4DOGJNBOT216mSOUX0C5MFAeu09oe8yY[0].optionValue$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4CGCZG5UNF6vvyVYN6tRsK4zOAfkvMFd[0].optionValue$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4CIQ7XM3HW2nS6t6Z2DgXPx4Gicn013H[0].optionValue$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4CD1TVFAMS0HUVgNs5MzTFHozIrYRUSX[0].optionValue$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4BHKRSWKOS6gBLQh27POOj4WVD6eQs9r$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4BHKRSWTKW5YxvDw2AWRuvDMX6hRJVRW$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4BHKRSXGFZ530ByLkfciFaVuYKCtukfL$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4CETFGWSG31hfYvjTHxistiBQoC6g9sC[0].optionValue$"
+                            ],
+                            "script_queries": [
+                              {
+                                "script_query": "result",
+                                "script_query_name": "payload",
+                                "script_query_type": "string"
+                              }
+                            ],
+                            "skip_execution": false
+                          },
+                          "object_type": "definition_activity"
+                        },
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT4W5N4G7ehpFnZKKHzJJz1YURZJ",
+                          "name": "Store Payload",
+                          "title": "Store Payload",
+                          "type": "core.set_multiple_variables",
+                          "base_type": "activity",
+                          "properties": {
+                            "continue_on_failure": false,
+                            "display_name": "Store Payload",
+                            "skip_execution": false,
+                            "variables_to_update": [
+                              {
+                                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZDR51gDbTDZALny8sRsHo5OTip$",
+                                "variable_value_new": "$activity.definition_activity_02U4BHKRT4N3N3ymvz68wWZ4fHI4HVCAo4d.output.script_queries.payload$"
+                              }
+                            ]
+                          },
+                          "object_type": "definition_activity"
+                        },
+                        {
+                          "unique_name": "definition_activity_02U4D8YNGDKL50wOqoYjVRS9PCHOnmHXzoc",
+                          "name": "HTTP Request",
+                          "title": "Github Dispatch",
+                          "type": "web-service.http_request",
+                          "base_type": "activity",
+                          "properties": {
+                            "action_timeout": 180,
+                            "allow_auto_redirect": true,
+                            "allow_headers_redirect": false,
+                            "body": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZDR51gDbTDZALny8sRsHo5OTip$",
+                            "content_type": "application/json",
+                            "continue_on_error_status_code": false,
+                            "continue_on_failure": false,
+                            "description": "HTTP Request",
+                            "display_name": "Github Dispatch",
+                            "method": "POST",
+                            "relative_url": "/dispatches",
+                            "runtime_user": {
+                              "target_default": true
+                            },
+                            "skip_execution": false,
+                            "target": {
+                              "override_workflow_target": true,
+                              "target_id": "definition_target_02U4AMGE7P0TJ3LX9AiizUEsIFBzDnR8RVp"
+                            }
+                          },
+                          "object_type": "definition_activity"
+                        },
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT5PJZ4XaiWxFEql11YXVIJgHK2w",
+                          "name": "Store HTTP Status",
+                          "title": "Store HTTP Status",
+                          "type": "core.set_multiple_variables",
+                          "base_type": "activity",
+                          "properties": {
+                            "continue_on_failure": false,
+                            "display_name": "Store HTTP Status",
+                            "skip_execution": false,
+                            "variables_to_update": [
+                              {
+                                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZV8D1JgKc5M9fS3gZ0ta04Lsod$",
+                                "variable_value_new": "$activity.definition_activity_02U4D8YNGDKL50wOqoYjVRS9PCHOnmHXzoc.output.status_code$"
+                              }
+                            ]
+                          },
+                          "object_type": "definition_activity"
+                        },
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT5ZKW6JzqHnqMruvtre5DVA0GtS",
+                          "name": "Generate Summary",
+                          "title": "Generate Summary",
+                          "type": "python3.script",
+                          "base_type": "activity",
+                          "properties": {
+                            "action_timeout": 180,
+                            "continue_on_failure": false,
+                            "display_name": "Generate Summary",
+                            "script": "import sys\n\norg = sys.argv[1]\nnet = sys.argv[2]\nssid = sys.argv[3]\ndry = sys.argv[4]\nstatus = sys.argv[5]\n\nsummary = f\"\"\"# Wireless Ansible Trigger Summary\n\n- **Organization**: {org}\n- **Network**: {net}\n- **SSID**: {ssid}\n- **Dry Run**: {dry}\n- **GitHub Dispatch Status**: {status}\n\nThe Ansible workflow has been triggered on GitHub.\"\"\"\n",
+                            "script_arguments": [
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYJWV0YF6Wid7NLBEpvbNBwg1A2$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSYT1D6V3lsVN81kE9cscZqhNRlz$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4DOGJNBOT216mSOUX0C5MFAeu09oe8yY[0].optionValue$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.input.variable_workflow_02U4BHKRSXGFZ530ByLkfciFaVuYKCtukfL$",
+                              "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZV8D1JgKc5M9fS3gZ0ta04Lsod$"
+                            ],
+                            "script_queries": [
+                              {
+                                "script_query": "summary",
+                                "script_query_name": "summary",
+                                "script_query_type": "string"
+                              }
+                            ],
+                            "skip_execution": false
+                          },
+                          "object_type": "definition_activity"
+                        },
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT69KH1WQUVeExJehBW1T7OVyF1Q",
+                          "name": "Store Summary",
+                          "title": "Store Summary",
+                          "type": "core.set_multiple_variables",
+                          "base_type": "activity",
+                          "properties": {
+                            "continue_on_failure": false,
+                            "display_name": "Store Summary",
+                            "skip_execution": false,
+                            "variables_to_update": [
+                              {
+                                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.output.variable_workflow_02U4BHKRT0NNM4ZGd5wpHz13d0DWSSc7JF3$",
+                                "variable_value_new": "$activity.definition_activity_02U4BHKRT5ZKW6JzqHnqMruvtre5DVA0GtS.output.script_queries.summary$"
+                              }
+                            ]
+                          },
+                          "object_type": "definition_activity"
+                        }
+                      ]
+                    },
+                    {
+                      "unique_name": "definition_activity_02U4BHKRT6NTN6G3GELJO9KVkndJFdq5Fxs",
+                      "name": "Network Not Found",
+                      "title": "Network Not Found",
+                      "type": "logic.condition_block",
+                      "base_type": "activity",
+                      "properties": {
+                        "condition": {
+                          "left_operand": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                          "operator": "ne",
+                          "right_operand": 200
+                        },
+                        "continue_on_failure": false,
+                        "display_name": "Network Not Found",
+                        "skip_execution": false
+                      },
+                      "object_type": "definition_activity",
+                      "actions": [
+                        {
+                          "unique_name": "definition_activity_02U4BHKRT6YEL3Vcik7WhHhqcefOnCGEPZe",
+                          "name": "Set Network Error",
+                          "title": "Set Network Error",
+                          "type": "core.set_multiple_variables",
+                          "base_type": "activity",
+                          "properties": {
+                            "continue_on_failure": false,
+                            "display_name": "Set Network Error",
+                            "skip_execution": false,
+                            "variables_to_update": [
+                              {
+                                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.output.variable_workflow_02U4BHKRT0XVR1A9NUfpe1NgHEIKSo2Pygl$",
+                                "variable_value_new": "Failed"
+                              },
+                              {
+                                "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.output.variable_workflow_02U4BHKRT1BQ31NXXn9YgBj5pvVlekgMwiH$",
+                                "variable_value_new": "Network not found or API error."
+                              }
+                            ]
+                          },
+                          "object_type": "definition_activity"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "unique_name": "definition_activity_02U4BHKRT79395hoFxqLxvyOyYH3TRm8Laa",
+              "name": "Org Not Found",
+              "title": "Org Not Found",
+              "type": "logic.condition_block",
+              "base_type": "activity",
+              "properties": {
+                "condition": {
+                  "left_operand": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.local.variable_workflow_02U4BHKRSZMNZ7d0S5hOSuMv68Wgx2Vgp0L$",
+                  "operator": "ne",
+                  "right_operand": 200
+                },
+                "continue_on_failure": false,
+                "display_name": "Org Not Found",
+                "skip_execution": false
+              },
+              "object_type": "definition_activity",
+              "actions": [
+                {
+                  "unique_name": "definition_activity_02U4BHKRT7N8L5yBX53IamErivXjs2GvFQr",
+                  "name": "Set Org Error",
+                  "title": "Set Org Error",
+                  "type": "core.set_multiple_variables",
+                  "base_type": "activity",
+                  "properties": {
+                    "continue_on_failure": false,
+                    "display_name": "Set Org Error",
+                    "skip_execution": false,
+                    "variables_to_update": [
+                      {
+                        "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.output.variable_workflow_02U4BHKRT0XVR1A9NUfpe1NgHEIKSo2Pygl$",
+                        "variable_value_new": "Failed"
+                      },
+                      {
+                        "variable_to_update": "$workflow.definition_workflow_02U4BHKRST7SB1ZWdSlBcXeWIwNhVMec5vC.output.variable_workflow_02U4BHKRT1BQ31NXXn9YgBj5pvVlekgMwiH$",
+                        "variable_value_new": "Organization not found or API error."
+                      }
+                    ]
+                  },
+                  "object_type": "definition_activity"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "categories": [
+        "category_1BMfMXSnJMyt5Ihqi7rWJr5N8cf"
+      ]
+    },
+    "targets": {
+      "definition_target_02U4AMGE7P0TJ3LX9AiizUEsIFBzDnR8RVp": {
+        "unique_name": "definition_target_02U4AMGE7P0TJ3LX9AiizUEsIFBzDnR8RVp",
+        "name": "Wireless Ansible Trigger",
+        "title": "Wireless Ansible Trigger",
+        "type": "web-service.endpoint",
+        "base_type": "target",
+        "object_type": "definition_target",
+        "properties": {
+          "default_runtime_user_id": "definition_runtime_user_02U4AL97MV5G97A4AuiA0sUnSgSHKi35D0h",
+          "description": "",
+          "disable_certificate_validation": false,
+          "display_name": "Wireless Ansible Trigger",
+          "host": "api.github.com",
+          "ignore_proxy": false,
+          "is_https_proxy": false,
+          "no_runtime_user": false,
+          "path": "/repos/liptonj/meraki-wireless-ansible",
+          "protocol": "https"
+        }
+      }
+    },
+    "runtime_users": {
+      "definition_runtime_user_02U4AL97MV5G97A4AuiA0sUnSgSHKi35D0h": {
+        "unique_name": "definition_runtime_user_02U4AL97MV5G97A4AuiA0sUnSgSHKi35D0h",
+        "name": "Wireless Ansible Trigger",
+        "title": "Wireless Ansible Trigger",
+        "type": "runtime_user.web-service_bearer_credentials",
+        "base_type": "runtime_user",
+        "object_type": "definition_runtime_user",
+        "properties": {
+          "bearer_token": "*****",
+          "display_name": "Wireless Ansible Trigger"
+        }
+      }
+    },
+    "table_types": {
+      "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX": {
+        "unique_name": "tabletype_02PFLRBJIBB4Z6TnKzO28tCUqClmfnuoRHX",
+        "data_type": "datatype.tabletype",
+        "display_name": "7gwv2RENUMfBTz1Qa8MHoUU^b4Y0nJKCwPVxztGq&9h=MsioeNRYl3dsCl1^k8;X",
+        "columns": [
+          {
+            "is_required": true,
+            "maxLength": 256,
+            "maximum": 0,
+            "minimum": 0,
+            "name": "optionLabel",
+            "title": "Option label",
+            "type": "string"
+          },
+          {
+            "is_required": true,
+            "maxLength": 256,
+            "maximum": 0,
+            "minimum": 0,
+            "name": "optionValue",
+            "title": "Option value",
+            "type": "string"
+          }
+        ],
+        "base_type": "datatype",
+        "object_type": "tabletype"
+      }
+    },
+    "dependent_workflows": [
+      "definition_workflow_02M605GS81XN44qr4RBWrJ6Zazk7k0ArIYX",
+      "definition_workflow_02LCR4UKH38PM6zDR4Bx2b2J165gCF1mhvh"
+    ]
+  }

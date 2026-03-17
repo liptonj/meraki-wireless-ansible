@@ -1,0 +1,21 @@
+---
+meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+
+snapshot_base_dir: "{{ playbook_dir }}/../baselines"
+snapshot_api_retries: "{{ meraki_api_retries | default(3) }}"
+snapshot_api_retry_delay: "{{ meraki_api_retry_delay | default(2) }}"
+
+snapshot_ssid_fields:
+  - name
+  - number
+  - enabled
+  - authMode
+  - encryptionMode
+  - wpaEncryptionMode
+  - visible
+  - bandSelection
+  - minBitrate
+  - perClientBandwidthLimitUp
+  - perClientBandwidthLimitDown
+  - splashPage
+  - availableOnAllAps

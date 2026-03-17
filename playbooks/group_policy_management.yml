@@ -1,0 +1,35 @@
+---
+# Group Policy Management Playbook
+# Seeds or updates network-scoped Meraki group policies from group_vars/meraki_group_policies.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/group_policy_management.yml -i inventory/production.yml
+#   ansible-playbook playbooks/group_policy_management.yml -i inventory/production.yml --check
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Seed Group Policies to Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: Load desired group policy definitions
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/meraki_group_policies.yml"
+      tags: always
+
+  roles:
+    - role: meraki_group_policy
+
+  post_tasks:
+    - name: Group policy management summary
+      ansible.builtin.debug:
+        msg: |
+          Group policy management complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          Desired group policies processed: {{ meraki_group_policy_configs | default([]) | length }}
+      tags: always

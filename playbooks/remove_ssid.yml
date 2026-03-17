@@ -1,0 +1,31 @@
+---
+# SSID Removal Playbook
+# Resets a named SSID slot back to an unconfigured state across one or more Meraki networks.
+#
+# Usage:
+#   ansible-playbook playbooks/remove_ssid.yml -i inventory/production.yml \
+#     -e "meraki_remove_ssid_name=Corp-Guest"
+#   ansible-playbook playbooks/remove_ssid.yml -i inventory/production.yml \
+#     -e "meraki_remove_ssid_name=Corp-Guest" --check
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Remove SSID from Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: false
+  become: false
+
+  roles:
+    - role: meraki_ssid_remove
+
+  post_tasks:
+    - name: SSID removal summary
+      ansible.builtin.debug:
+        msg: |
+          SSID removal complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          Removed SSID: {{ meraki_remove_ssid_name }}
+      tags: always

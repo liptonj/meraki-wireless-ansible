@@ -1,0 +1,60 @@
+# SSID Deployment Config — applies to hosts in the `meraki_orgs` inventory group
+# (used by ssid_management.yml). Defines what SSIDs to deploy and operational settings.
+
+meraki_environment: production
+
+# API Configuration
+meraki_api_timeout: 60
+meraki_api_retries: 5
+meraki_api_retry_delay: 3
+meraki_rate_limit: 3
+
+# SSID Configuration
+meraki_ssids:
+- name: "Corp-Secure"
+  enabled: true
+  authMode: "psk"
+  encryptionMode: "wpa2"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  perClientBandwidthLimitUp: 0
+  perClientBandwidthLimitDown: 0
+  visible: true
+  availableOnAllAps: true
+  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
+- name: "Corp-Guest"
+  enabled: false
+  authMode: "open"
+  encryptionMode: "open"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  visible: true
+  availableOnAllAps: true
+
+- name: "test"
+  enabled: true
+  authMode: "psk"
+  encryptionMode: "wpa3"
+  minBitrate: 11
+  bandSelection: "Dual band operation"
+  perClientBandwidthLimitUp: 0
+  perClientBandwidthLimitDown: 0
+  visible: true
+  availableOnAllAps: true
+  psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
+meraki_ap_name_pattern: "{site}-{network_name}-AP-{serial[-6:]}"
+
+meraki_ap_tags:
+- "managed-by-ansible"
+
+# Operational Settings
+meraki_dry_run: false
+meraki_validate_changes: true
+meraki_log_changes: true
+meraki_change_log_path: "./logs/meraki_changes_{{ ansible_date_time.epoch }}.json"
+
+# Compliance Rules
+meraki_compliance_rules:
+- name: "encryption_standard"
+  check: "all_ssids_use_wpa2_or_wpa3"
+  severity: "error"

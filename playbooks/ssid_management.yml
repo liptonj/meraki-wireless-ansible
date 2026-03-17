@@ -1,0 +1,40 @@
+---
+# SSID Management Playbook
+# Deploys and configures wireless SSIDs across Meraki networks
+#
+# Usage:
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml
+#   ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml --check --diff
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Deploy SSIDs to Each Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: false
+  become: false
+
+  pre_tasks:
+    - name: Load SSID definitions from group_vars
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/meraki_orgs.yml"
+      tags: always
+
+    - name: Resolve SSID configs with live env vars
+      ansible.builtin.set_fact:
+        meraki_ssid_configs: "{{ meraki_ssids | default([]) }}"
+      tags: always
+
+  roles:
+    - role: meraki_ssid
+
+  post_tasks:
+    - name: SSID deployment summary
+      ansible.builtin.debug:
+        msg: |
+          SSID deployment complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+          SSIDs configured: {{ meraki_ssid_configs | default([]) | length }}
+      tags: always

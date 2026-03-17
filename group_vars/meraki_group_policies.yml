@@ -1,0 +1,26 @@
+---
+# Desired group policy state for Meraki networks.
+# Used by playbooks/group_policy_management.yml.
+
+meraki_desired_group_policies:
+  - network_name: LAB-Site1
+    policies:
+      - name: Lab-Site1 Restricted Policy
+        firewallAndTrafficShaping:
+          settings: custom
+          l3FirewallRules:
+            - comment: Deny RFC1918 east-west traffic to 10/8
+              policy: deny
+              protocol: any
+              destPort: any
+              destCidr: 10.0.0.0/8
+            - comment: Deny RFC1918 east-west traffic to 172.16/12
+              policy: deny
+              protocol: any
+              destPort: any
+              destCidr: 172.16.0.0/12
+            - comment: Deny RFC1918 east-west traffic to 192.168/16
+              policy: deny
+              protocol: any
+              destPort: any
+              destCidr: 192.168.0.0/16

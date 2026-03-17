@@ -1,0 +1,7 @@
+---
+meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+
+meraki_ssid_configs: []
+
+meraki_ssid_api_retries: "{{ meraki_api_retries | default(3) }}"
+meraki_ssid_api_retry_delay: "{{ meraki_api_retry_delay | default(2) }}"

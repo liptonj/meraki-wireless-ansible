@@ -1,0 +1,72 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-case-conflict
+      - id: check-shebang-scripts-are-executable
+
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v25.0.0
+    hooks:
+      - id: ansible-lint
+        files: ^(playbooks|roles|group_vars|host_vars|inventory)/.*\.(yml|yaml)$
+        exclude: |
+          (?x)^(
+            \.github/|
+            \.devcontainer/|
+            vault/|
+            \.ansible/
+          )
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint]
+        files: \.(yml|yaml)$
+        exclude: |
+          (?x)^(
+            \.github/|
+            \.devcontainer/|
+            vault/|
+            \.ansible/
+          )
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: |
+          (?x)^(
+            vault/|
+            \.secrets\.baseline|
+            \.env\.example
+          )
+        additional_dependencies: ['pyyaml']
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        files: \.(sh|bash)$
+        args: [-e, SC1091]
+
+  - repo: local
+    hooks:
+      - id: validate-jinja-templates
+        name: validate-jinja-templates
+        entry: python3 scripts/validate_jinja_templates.py
+        language: system
+        pass_filenames: false
+        files: \.j2$

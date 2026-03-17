@@ -1,0 +1,4 @@
+---
+- name: Log SSID changes
+  ansible.builtin.debug:
+    msg: "SSID removal changes have been applied to network {{ meraki_network_id }}"

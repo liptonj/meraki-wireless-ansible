@@ -1,0 +1,169 @@
+# Meraki Wireless Compliance Report
+
+**Generated:** {{ compliance_data.timestamp }}  
+**Mode:** {{ compliance_data.playbook_mode }}  
+**Report ID:** {{ ansible_date_time.epoch }}
+
+---
+
+## Executive Summary
+
+| Metric | Count |
+|--------|-------|
+| **Networks Checked** | {{ compliance_data.networks_checked }} |
+| **Networks Compliant** | {{ compliance_data.networks_compliant }} ✅ |
+| **Networks Non-Compliant** | {{ compliance_data.networks_non_compliant }} ⚠️ |
+| **Total SSIDs Checked** | {{ compliance_data.ssids_checked }} |
+| **SSIDs Compliant** | {{ compliance_data.ssids_compliant }} ✅ |
+| **SSIDs Non-Compliant** | {{ compliance_data.ssids_non_compliant }} ⚠️ |
+| **Group Policies Checked** | {{ compliance_data.group_policies_checked | default(0) }} |
+| **Group Policies Non-Compliant** | {{ compliance_data.group_policies_non_compliant | default(0) }} ⚠️ |
+
+**Overall Compliance Status:** {% if compliance_data.networks_non_compliant == 0 %}✅ **PASS**{% else %}⚠️ **FAIL**{% endif %}
+
+---
+
+## Network Details
+
+{% for network in compliance_data.network_details %}
+### {{ network.network_name }}
+
+**Network ID:** `{{ network.network_id }}`  
+{% if network.network_wireless_ssids_url is defined and network.network_wireless_ssids_url | length > 0 %}
+**Dashboard (Wireless SSIDs):** [Open]({{ network.network_wireless_ssids_url }})  
+{% elif network.network_dashboard_url is defined and network.network_dashboard_url | length > 0 %}
+**Dashboard (Network):** [Open]({{ network.network_dashboard_url }})  
+{% endif %}
+**Compliance Status:** {% if network.compliant %}✅ **COMPLIANT**{% else %}⚠️ **NON-COMPLIANT**{% endif %}  
+**Drift Detected:** {% if network.drift_detected %}⚠️ **YES** ({{ network.drift_count }} SSID{{ 's' if network.drift_count != 1 else '' }}){% else %}✅ **NO**{% endif %}
+
+#### SSID Compliance Matrix
+
+| SSID Name | Number | Status | Enabled | Auth Mode | Encryption | WPA Encryption Mode | Visible | Broadcast | Min Bitrate | Band Selection |
+|-----------|--------|--------|---------|-----------|------------|---------------------|---------|-----------|-------------|----------------|
+{% for ssid in network.ssids %}
+| **{{ ssid.name }}** | {{ ssid.number }} | {% if ssid.compliant %}✅ PASS{% else %}⚠️ FAIL{% endif %} | {% if ssid.differences.enabled is defined %}⚠️ {{ ssid.current.enabled }} → {{ ssid.desired.enabled }}{% else %}✅ {{ ssid.current.enabled }}{% endif %} | {% if ssid.differences.authMode is defined %}⚠️ {{ ssid.current.authMode }} → {{ ssid.desired.authMode }}{% else %}✅ {{ ssid.current.authMode }}{% endif %} | {% if ssid.differences.encryptionMode is defined %}⚠️ {{ ssid.current.encryptionMode }} → {{ ssid.desired.encryptionMode }}{% else %}✅ {{ ssid.current.encryptionMode }}{% endif %} | {% if ssid.differences.wpaEncryptionMode is defined %}⚠️ {{ ssid.current.wpaEncryptionMode }} → {{ ssid.desired.wpaEncryptionMode }}{% else %}✅ {{ ssid.current.wpaEncryptionMode | default('n/a') }}{% endif %} | {% if ssid.differences.visible is defined %}⚠️ {{ ssid.current.visible }} → {{ ssid.desired.visible }}{% else %}✅ {{ ssid.current.visible }}{% endif %} | {% if ssid.differences.broadcast is defined %}⚠️ {{ ssid.current.broadcast }} → {{ ssid.desired.broadcast }}{% else %}✅ {{ ssid.current.broadcast }}{% endif %} | {% if ssid.differences.minBitrate is defined %}⚠️ {{ ssid.current.minBitrate }} → {{ ssid.desired.minBitrate }}{% else %}✅ {{ ssid.current.minBitrate }}{% endif %} | {% if ssid.differences.bandSelection is defined %}⚠️ {{ ssid.current.bandSelection }} → {{ ssid.desired.bandSelection }}{% else %}✅ {{ ssid.current.bandSelection }}{% endif %} |
+{% endfor %}
+
+{% if network.drift_detected %}
+#### ⚠️ Configuration Drift Detected
+
+The following SSIDs have configuration differences from the desired state:
+
+{% for ssid in network.ssids %}
+{% if ssid.drift_detected %}
+**SSID: {{ ssid.name }} (Number {{ ssid.number }})**
+
+| Field | Current Value | Desired Value | Status |
+|-------|---------------|---------------|--------|
+{% for field, values in ssid.differences.items() %}
+| `{{ field }}` | `{{ values.current }}` | `{{ values.desired }}` | ⚠️ **DRIFT** |
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+
+**Remediation:** Run the SSID configuration playbook to restore compliance:
+```bash
+ansible-playbook playbooks/ssid_management.yml -i inventory/production.yml --limit {{ network.network_name }}
+```
+
+{% endif %}
+
+#### Group Policy ACL Audit
+
+| Group Policy | ID | Firewall Settings | L3 Rules | L7 Rules | Status |
+|--------------|----|-------------------|----------|----------|--------|
+{% for policy in network.group_policies | default([]) %}
+| **{{ policy.name }}** | {{ policy.groupPolicyId }} | {{ policy.firewall_settings }} | {{ policy.l3_rule_count }} | {{ policy.l7_rule_count }} | {% if policy.compliant %}✅ PASS{% else %}⚠️ FAIL{% endif %} |
+{% endfor %}
+{% if network.group_policies | default([]) | length == 0 %}
+| _No group policies found_ | - | - | - | - | ✅ PASS |
+{% endif %}
+
+{% if network.group_policy_non_compliant_count | default(0) | int > 0 %}
+#### ⚠️ Group Policy ACL Findings
+
+{% for policy in network.group_policies | default([]) %}
+{% if not policy.compliant %}
+**Group Policy: {{ policy.name }} ({{ policy.groupPolicyId }})**
+
+| Severity | Message | Current | Expected |
+|----------|---------|---------|----------|
+{% for violation in policy.violations %}
+| {{ violation.severity | upper }} | {{ violation.message }} | `{{ violation.current_value }}` | `{{ violation.expected }}` |
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if network.ssids | selectattr('compliant', 'equalto', false) | list | length == 0 %}
+✅ **All SSIDs in this network are compliant with desired state.**
+
+{% endif %}
+
+---
+
+{% endfor %}
+
+## Compliance Check Details
+
+### Checked Fields
+
+The following SSID configuration fields were checked for compliance:
+
+- `enabled` - SSID enabled/disabled status
+- `authMode` - Authentication mode (open, psk, 8021x, etc.)
+- `encryptionMode` - Transport mode (`open` for open auth, otherwise `wpa`)
+- `wpaEncryptionMode` - Allowed WPA profile (`WPA2 only` or `WPA3 Transition Mode`)
+- `visible` - SSID visibility in broadcast
+- `broadcast` - SSID broadcast status
+- `minBitrate` - Minimum bitrate (Mbps)
+- `bandSelection` - Band selection mode
+- Group policy ACL posture:
+  - Custom group policies should contain at least one L3 or L7 ACL rule
+  - L3 ACLs must not contain `allow any/any` rules
+
+### Legend
+
+- ✅ **PASS** - Configuration matches desired state
+- ⚠️ **FAIL** - Configuration differs from desired state (drift detected)
+- → Indicates drift: Current → Desired value
+
+---
+
+## Recommendations
+
+{% if compliance_data.networks_non_compliant > 0 %}
+1. **Review Non-Compliant Networks**: {{ compliance_data.networks_non_compliant }} network{{ 's' if compliance_data.networks_non_compliant != 1 else '' }} require attention
+2. **Investigate Drift**: Check Meraki Dashboard for manual changes that caused configuration drift
+3. **Review Group Policy ACLs**: Validate custom group policies are restrictive and contain explicit ACLs
+4. **Restore Compliance**: Use Ansible playbooks to restore desired configuration state
+5. **Prevent Future Drift**: Consider implementing:
+   - Dashboard access controls
+   - Change approval workflows
+   - Regular automated compliance checks (schedule with cron)
+{% else %}
+✅ **All networks are compliant!** No action required.
+
+Consider scheduling this compliance check to run automatically:
+```bash
+# Add to crontab for daily checks at 2 AM
+0 2 * * * cd /path/to/repo && ansible-playbook -i inventory/production.yml playbooks/compliance_check.yml
+```
+{% endif %}
+
+---
+
+## Next Steps
+
+1. **Review this report** for any non-compliant configurations
+2. **Investigate root cause** of any detected drift
+3. **Remediate** using Ansible playbooks if needed
+4. **Schedule regular checks** to prevent future drift
+
+---
+
+*Report generated by Ansible Meraki Compliance Role*  
+*For questions or issues, refer to the project documentation*

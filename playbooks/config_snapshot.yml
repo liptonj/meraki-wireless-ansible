@@ -1,0 +1,31 @@
+---
+# Configuration Snapshot Playbook
+# Pulls live Meraki config and stores it in baselines/ for GitOps drift detection
+#
+# Usage:
+#   ansible-playbook playbooks/config_snapshot.yml -i inventory/production.yml
+
+- name: Discover networks
+  ansible.builtin.import_playbook: discover.yml
+
+- name: Capture Configuration Baseline per Network
+  hosts: meraki_networks
+  serial: 1
+  gather_facts: true
+  become: false
+
+  roles:
+    - role: meraki_snapshot
+
+  post_tasks:
+    - name: Snapshot summary
+      ansible.builtin.debug:
+        msg: |
+          Configuration snapshot complete!
+          Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
+          Network: {{ meraki_network_name_resolved }} ({{ snapshot_results.network_id }})
+          SSIDs captured: {{ snapshot_results.ssids_captured }}
+          Baseline drift detected: {{ snapshot_results.baseline_drift_detected }}
+          Saved to: {{ snapshot_results.baseline_path }}
+      when: snapshot_results is defined
+      tags: always

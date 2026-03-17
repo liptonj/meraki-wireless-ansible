@@ -1,0 +1,131 @@
+---
+- name: Validate discovery inputs
+  ansible.builtin.assert:
+    that:
+      - meraki_api_key | length > 0
+      - meraki_org_name | length > 0
+    fail_msg: >-
+      meraki_api_key and meraki_org_name are required.
+      Set MERAKI_DASHBOARD_API_KEY and meraki_org_name.
+    quiet: true
+  tags:
+    - discovery
+
+- name: Get all organizations accessible by this API key
+  cisco.meraki.organizations_info:
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: all_orgs
+  retries: "{{ meraki_discovery_api_retries }}"
+  delay: "{{ meraki_discovery_api_retry_delay }}"
+  until: all_orgs is not failed
+  no_log: true
+  tags:
+    - discovery
+
+- name: Find organization by name
+  ansible.builtin.set_fact:
+    discovered_org: >-
+      {{ all_orgs.meraki_response | default([])
+         | selectattr('name', 'equalto', meraki_org_name)
+         | first
+         | default({}) }}
+  tags:
+    - discovery
+
+- name: Verify organization was found
+  ansible.builtin.assert:
+    that:
+      - discovered_org | length > 0
+      - discovered_org.id is defined
+    fail_msg: >-
+      Organization "{{ meraki_org_name }}" not found.
+      Available organizations: {{ all_orgs.meraki_response | default([]) | map(attribute='name') | list | join(', ') }}
+    quiet: false
+  tags:
+    - discovery
+
+- name: Set organization ID from discovery
+  ansible.builtin.set_fact:
+    meraki_org_id: "{{ discovered_org.id }}"
+  tags:
+    - discovery
+
+- name: Display discovered organization
+  ansible.builtin.debug:
+    msg: "Organization: {{ meraki_org_name }} (ID: {{ meraki_org_id }})"
+  tags:
+    - discovery
+
+- name: Get all networks in the organization
+  cisco.meraki.networks_info:
+    organizationId: "{{ meraki_org_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: all_networks
+  retries: "{{ meraki_discovery_api_retries }}"
+  delay: "{{ meraki_discovery_api_retry_delay }}"
+  until: all_networks is not failed
+  no_log: true
+  tags:
+    - discovery
+
+- name: Build list of target network names
+  ansible.builtin.set_fact:
+    _target_network_names: >-
+      {{ meraki_network_names
+         if (meraki_network_names | length > 0)
+         else ([meraki_network_name] if (meraki_network_name | length > 0) else []) }}
+  tags:
+    - discovery
+
+- name: Discover target networks by name
+  ansible.builtin.set_fact:
+    discovered_networks: >-
+      {{ all_networks.meraki_response | default([])
+         | selectattr('name', 'in', _target_network_names)
+         | list }}
+  when: _target_network_names | length > 0
+  tags:
+    - discovery
+
+- name: Use all networks when no target names specified
+  ansible.builtin.set_fact:
+    discovered_networks: "{{ all_networks.meraki_response | default([]) }}"
+  when: _target_network_names | length == 0
+  tags:
+    - discovery
+
+- name: Verify at least one target network was found
+  ansible.builtin.assert:
+    that:
+      - discovered_networks | length > 0
+    fail_msg: >-
+      No matching networks found in organization "{{ meraki_org_name }}".
+      Searched for: {{ _target_network_names | join(', ') | default('(all networks)') }}.
+      Available networks: {{ all_networks.meraki_response | default([]) | map(attribute='name') | list | join(', ') }}
+    quiet: false
+  tags:
+    - discovery
+
+- name: Set single network ID (first match)
+  ansible.builtin.set_fact:
+    meraki_network_id: "{{ discovered_networks[0].id }}"
+    meraki_network_name_resolved: "{{ discovered_networks[0].name }}"
+  tags:
+    - discovery
+
+- name: Set all discovered network IDs
+  ansible.builtin.set_fact:
+    meraki_network_ids: "{{ discovered_networks | map(attribute='id') | list }}"
+    meraki_discovered_networks: "{{ discovered_networks }}"
+  tags:
+    - discovery
+
+- name: Display discovered networks
+  ansible.builtin.debug:
+    msg: >-
+      Found {{ discovered_networks | length }} network(s):
+      {% for net in discovered_networks %}
+      {{ net.name }} ({{ net.id }}){{ ', ' if not loop.last else '' }}
+      {% endfor %}
+  tags:
+    - discovery

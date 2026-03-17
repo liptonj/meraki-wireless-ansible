@@ -1,0 +1,27 @@
+---
+skip_list:
+  - yaml[line-length]
+  - name[casing]
+  - name[role-name]
+  - command-instead-of-module
+  - var-naming[no-role-prefix]
+
+enable_list:
+  - yaml
+  - name
+  - syntax-check
+  - risky-shell-pipe
+  - risky-file-permissions
+
+exclude_paths:
+  - .github/
+  - .devcontainer/
+  - vault/
+  - .ansible/
+  - venv/
+  - .git/
+  - __pycache__/
+  - "*.pyc"
+  - .env
+
+use_default_rules: true

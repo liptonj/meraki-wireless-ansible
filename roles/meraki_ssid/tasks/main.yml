@@ -1,0 +1,179 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - meraki_api_key | length > 0
+      - meraki_network_id is defined and meraki_network_id | length > 0
+      - meraki_ssid_configs | length > 0
+    fail_msg: >-
+      Missing required variables: meraki_api_key, meraki_network_id,
+      and meraki_ssid_configs must all be set.
+    quiet: true
+  tags:
+    - ssid
+    - validate
+
+- name: Display SSID deployment plan
+  ansible.builtin.debug:
+    msg: "Will configure {{ meraki_ssid_configs | length }} SSID(s) on network {{ meraki_network_id }}"
+  tags:
+    - ssid
+
+- name: Get current SSIDs from Meraki
+  cisco.meraki.networks_wireless_ssids_info:
+    networkId: "{{ meraki_network_id }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+  register: current_ssids_result
+  retries: "{{ meraki_ssid_api_retries }}"
+  delay: "{{ meraki_ssid_api_retry_delay }}"
+  until: current_ssids_result is not failed
+  tags:
+    - ssid
+    - gather
+
+- name: Validate desired SSID names are unique
+  ansible.builtin.assert:
+    that:
+      - (meraki_ssid_configs | map(attribute='name') | list | unique | length) == (meraki_ssid_configs | length)
+    fail_msg: "meraki_ssid_configs contains duplicate SSID names. Each SSID name must be unique per run."
+    quiet: true
+  tags:
+    - ssid
+    - validate
+
+- name: Build SSID slot assignment plan
+  ansible.builtin.set_fact:
+    ssid_slot_map: >-
+      {{
+        slot_plan.assignments
+      }}
+  vars:
+    existing_ssids: "{{ current_ssids_result.meraki_response | default([]) }}"
+    available_unconfigured_slots: >-
+      {{
+        existing_ssids
+        | selectattr('name', 'match', '^Unconfigured SSID')
+        | map(attribute='number')
+        | list
+        | sort
+      }}
+    slot_plan: >-
+      {%- set ns = namespace(assignments=[], consumed_slots=[]) -%}
+      {%- for desired_ssid in meraki_ssid_configs -%}
+        {%- set existing_slot = (
+          existing_ssids
+          | selectattr('name', 'equalto', desired_ssid.name)
+          | map(attribute='number')
+          | first
+          | default(none)
+        ) -%}
+        {%- if existing_slot is not none -%}
+          {%- set chosen_slot = existing_slot -%}
+        {%- else -%}
+          {%- set remaining_slots = available_unconfigured_slots | difference(ns.consumed_slots) -%}
+          {%- set chosen_slot = remaining_slots | first | default(-1) -%}
+          {%- if chosen_slot != -1 -%}
+            {%- set ns.consumed_slots = ns.consumed_slots + [chosen_slot] -%}
+          {%- endif -%}
+        {%- endif -%}
+        {%- set ns.assignments = ns.assignments + [{'config': desired_ssid, 'number': chosen_slot}] -%}
+      {%- endfor -%}
+      {{ {'assignments': ns.assignments, 'consumed_slots': ns.consumed_slots} }}
+  changed_when: false
+  tags:
+    - ssid
+
+- name: Validate SSID config compatibility
+  ansible.builtin.assert:
+    that:
+      - >-
+        item.authMode | default('psk') != 'open'
+        or item.encryptionMode | default('open') == 'open'
+      - >-
+        item.perClientBandwidthLimitUp is not defined
+        or (item.perClientBandwidthLimitUp | string is match('^[0-9]+$'))
+      - >-
+        item.perClientBandwidthLimitDown is not defined
+        or (item.perClientBandwidthLimitDown | string is match('^[0-9]+$'))
+    fail_msg: >-
+      SSID "{{ item.name }}" has invalid config:
+      authMode={{ item.authMode | default('psk') }}
+      encryptionMode={{ item.encryptionMode | default('?') }}
+      — open auth requires encryptionMode='open';
+      bandwidth limits must be integers.
+    quiet: false
+  loop: "{{ meraki_ssid_configs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - ssid
+    - validate
+
+- name: Configure SSIDs on Meraki network
+  cisco.meraki.networks_wireless_ssids:
+    networkId: "{{ meraki_network_id }}"
+    number: "{{ item.number }}"
+    meraki_api_key: "{{ meraki_api_key }}"
+    name: "{{ item.config.name }}"
+    enabled: "{{ item.config.enabled | default(true) }}"
+    authMode: "{{ item.config.authMode | default('psk') }}"
+    # Meraki API: encryptionMode must be 'open' for open auth; 'wpa' for WPA2/WPA3
+    # wpaEncryptionMode must be omitted when authMode is open
+    encryptionMode: >-
+      {% if item.config.authMode | default('psk') == 'open' -%}
+        open
+      {%- elif item.config.encryptionMode | default('wpa2') in ['wpa2', 'wpa3'] -%}
+        wpa
+      {%- else -%}
+        {{ item.config.encryptionMode | default('wpa') }}
+      {%- endif %}
+    wpaEncryptionMode: >-
+      {{ omit
+         if item.config.authMode | default('psk') == 'open'
+         else item.config.wpaEncryptionMode | default(
+           'WPA3 Transition Mode' if item.config.encryptionMode | default('') == 'wpa3'
+           else 'WPA2 only'
+         ) }}
+    psk: "{{ item.config.psk | default(omit) }}"
+    minBitrate: "{{ item.config.minBitrate | float if item.config.minBitrate is defined else omit }}"
+    bandSelection: "{{ item.config.bandSelection | default(omit) }}"
+    perClientBandwidthLimitUp: "{{ item.config.perClientBandwidthLimitUp | int if (item.config.perClientBandwidthLimitUp is defined and item.config.perClientBandwidthLimitUp | int > 0) else omit }}"
+    perClientBandwidthLimitDown: "{{ item.config.perClientBandwidthLimitDown | int if (item.config.perClientBandwidthLimitDown is defined and item.config.perClientBandwidthLimitDown | int > 0) else omit }}"
+    visible: "{{ item.config.visible | default(true) }}"
+    availableOnAllAps: "{{ item.config.availableOnAllAps | default(true) }}"
+    splashPage: "{{ item.config.splashPage | default(omit) }}"
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }} -> slot {{ item.number }}"
+  when: item.number >= 0
+  retries: "{{ meraki_ssid_api_retries }}"
+  delay: "{{ meraki_ssid_api_retry_delay }}"
+  register: ssid_results
+  notify: Log SSID changes
+  tags:
+    - ssid
+    - configure
+
+- name: Display SSID deployment results
+  ansible.builtin.debug:
+    msg: >-
+      SSID "{{ item.config.name }}" configured successfully
+      on slot {{ item.number }}
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when: item.number >= 0
+  tags:
+    - ssid
+
+- name: Warn about SSIDs that could not be assigned a slot
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: SSID "{{ item.config.name }}" could not be assigned a slot.
+      All 15 SSID slots may be in use. Free a slot in Meraki Dashboard first.
+  loop: "{{ ssid_slot_map | default([]) }}"
+  loop_control:
+    label: "{{ item.config.name }}"
+  when: item.number < 0
+  tags:
+    - ssid

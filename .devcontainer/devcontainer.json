@@ -1,0 +1,60 @@
+{
+  "name": "Meraki Wireless Ansible",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.ansible",
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.formatting.provider": "black",
+        "ansible.python.interpreterPath": "/usr/local/bin/python",
+        "ansible.ansible.path": "/usr/local/bin/ansible",
+        "ansible.ansibleLint.path": "/usr/local/bin/ansible-lint",
+        "yaml.schemas": {
+          "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json": [
+            "**/playbooks/**/*.yml",
+            "**/roles/**/*.yml"
+          ]
+        },
+        "editor.formatOnSave": true,
+        "editor.rulers": [88],
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  },
+
+  "postCreateCommand": "bash -c 'pip install --upgrade pip && pip install -r requirements.txt && ansible-galaxy collection install -r requirements.yml'",
+  "postStartCommand": "echo 'Meraki Wireless Ansible dev container ready!'",
+
+  "workspaceFolder": "/workspace/meraki-wireless-ansible",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/meraki-wireless-ansible,type=bind",
+
+  "remoteUser": "vscode",
+
+  "containerEnv": {
+    "ANSIBLE_CONFIG": "/workspace/meraki-wireless-ansible/ansible.cfg",
+    "ANSIBLE_FORCE_COLOR": "1"
+  },
+
+  "onCreateCommand": "echo 'Setting up Meraki Wireless Ansible environment...'",
+  "updateContentCommand": "pip install --upgrade -r requirements.txt && ansible-galaxy collection install -r requirements.yml --force"
+}

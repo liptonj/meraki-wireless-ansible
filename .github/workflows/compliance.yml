@@ -1,0 +1,156 @@
+name: Wireless Compliance Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+  workflow_call:
+    inputs:
+      meraki_org_name:
+        required: false
+        type: string
+      meraki_network_names:
+        required: false
+        type: string
+      trigger_source:
+        required: false
+        type: string
+    secrets:
+      MERAKI_DASHBOARD_API_KEY:
+        required: true
+      MERAKI_ORG_NAME:
+        required: false
+      MERAKI_NETWORK_NAMES:
+        required: false
+      WEBEX_BOT_TOKEN:
+        required: false
+      WEBEX_ALERT_EMAIL:
+        required: false
+
+  schedule:
+    - cron: '0 */6 * * *'
+
+  repository_dispatch:
+    types: [meraki-config-change]
+
+permissions:
+  issues: write
+  contents: write
+
+concurrency:
+  # Coalesce bursty repository_dispatch events into one compliance run.
+  group: ${{ github.event_name == 'repository_dispatch' && format('compliance-webhook-{0}', github.event.client_payload.environment || github.event.inputs.environment || 'production') || format('compliance-{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'repository_dispatch' }}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS: ${{ vars.COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS || '120' }}
+
+jobs:
+  compliance-check:
+    name: Run Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Debounce webhook-triggered compliance checks
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        run: |
+          echo "Webhook trigger received. Waiting ${COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS}s for additional changes before running compliance."
+          sleep "${COMPLIANCE_WEBHOOK_DEBOUNCE_SECONDS}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Cache Ansible Galaxy collections
+        uses: actions/cache@v5
+        with:
+          path: ~/.ansible/collections
+          key: ${{ runner.os }}-ansible-galaxy-${{ hashFiles('requirements.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-ansible-galaxy-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Determine trigger source
+        id: trigger
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "source=manual" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "source=scheduled" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "source=webhook (Meraki config change)" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_call" ]; then
+            echo "source=${{ inputs.trigger_source || 'post-deploy' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run compliance check
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME: ${{ inputs.meraki_org_name || github.event.client_payload.meraki_org_name || vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ inputs.meraki_network_names || github.event.client_payload.meraki_network_names || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
+          CORP_SECURE_PSK: ${{ secrets.CORP_SECURE_PSK }}
+          GUEST_SSID_PSK: ${{ secrets.GUEST_SSID_PSK }}
+          CORPORATE_BYOD_PSK: ${{ secrets.CORPORATE_BYOD_PSK }}
+          IOT_SSID_PSK: ${{ secrets.IOT_SSID_PSK }}
+          RADIUS_SERVER_1_HOST: ${{ secrets.RADIUS_SERVER_1_HOST }}
+          RADIUS_SERVER_1_SECRET: ${{ secrets.RADIUS_SERVER_1_SECRET }}
+          RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
+          RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
+        run: |
+          echo "Trigger: ${{ steps.trigger.outputs.source }}"
+          echo ""
+
+          ansible-playbook playbooks/compliance_check.yml \
+            -i inventory/production.yml \
+            -e "compliance_github_repo=${{ github.repository }}" \
+            -e "compliance_github_token=${GITHUB_TOKEN}"
+
+      - name: Snapshot current config to baselines
+        env:
+          MERAKI_DASHBOARD_API_KEY: ${{ secrets.MERAKI_DASHBOARD_API_KEY }}
+          MERAKI_ORG_NAME: ${{ inputs.meraki_org_name || github.event.client_payload.meraki_org_name || vars.MERAKI_ORG_NAME || secrets.MERAKI_ORG_NAME }}
+          MERAKI_NETWORK_NAMES: ${{ inputs.meraki_network_names || github.event.client_payload.meraki_network_names || vars.MERAKI_NETWORK_NAMES || secrets.MERAKI_NETWORK_NAMES }}
+        run: |
+          ansible-playbook playbooks/config_snapshot.yml \
+            -i inventory/production.yml
+
+      - name: Commit baseline changes to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add baselines/
+          if git diff --cached --quiet; then
+            echo "No baseline changes to commit"
+          else
+            git commit -m "chore(baselines): update config snapshot [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
+            git push
+          fi
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 90

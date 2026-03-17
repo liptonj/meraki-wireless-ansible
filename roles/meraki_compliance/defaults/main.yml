@@ -1,0 +1,91 @@
+---
+# Override in group_vars/all.yml or group_vars/meraki_networks.yml
+
+meraki_desired_ssids: []
+
+compliance_check_enabled: true
+compliance_strict_mode: false
+compliance_report_dir: "{{ playbook_dir | default('.') }}/../reports"
+meraki_compliance_check_enabled: "{{ compliance_check_enabled }}"
+meraki_compliance_strict_mode: "{{ compliance_strict_mode }}"
+meraki_compliance_report_dir: "{{ compliance_report_dir }}"
+
+compliance_check_fields:
+  - name
+  - enabled
+  - authMode
+  - encryptionMode
+  - wpaEncryptionMode
+  - visible
+  - broadcast
+  - minBitrate
+  - bandSelection
+meraki_compliance_check_fields: "{{ compliance_check_fields }}"
+
+meraki_api_key: "{{ lookup('env', 'MERAKI_DASHBOARD_API_KEY') | default(vault_meraki_api_key | default(''), true) }}"
+meraki_compliance_api_retries: "{{ meraki_api_retries | default(3) }}"
+meraki_compliance_api_retry_delay: "{{ meraki_api_retry_delay | default(2) }}"
+
+# Alerting configuration
+compliance_alerting_enabled: true
+meraki_compliance_alerting_enabled: "{{ compliance_alerting_enabled }}"
+
+compliance_github_alert_enabled: true
+compliance_github_repo: ""
+compliance_github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
+meraki_compliance_github_alert_enabled: "{{ compliance_github_alert_enabled }}"
+meraki_compliance_github_repo: "{{ compliance_github_repo }}"
+meraki_compliance_github_token: "{{ compliance_github_token }}"
+
+compliance_webex_alert_enabled: true
+compliance_webex_webhook_url: "{{ lookup('env', 'WEBEX_WEBHOOK_URL') | default('', true) }}"
+meraki_compliance_webex_alert_enabled: "{{ compliance_webex_alert_enabled }}"
+meraki_compliance_webex_webhook_url: "{{ compliance_webex_webhook_url }}"
+
+compliance_webex_bot_enabled: true
+compliance_webex_bot_token: "{{ lookup('env', 'WEBEX_BOT_TOKEN') | default(vault_webex_bot_token | default(''), true) }}"
+compliance_webex_alert_email: "{{ lookup('env', 'WEBEX_ALERT_EMAIL') | default(vault_webex_alert_email | default(''), true) }}"
+compliance_webex_webhook_secret: "{{ lookup('env', 'WEBEX_WEBHOOK_SECRET') | default(vault_webex_webhook_secret | default(''), true) }}"
+meraki_compliance_webex_bot_enabled: "{{ compliance_webex_bot_enabled }}"
+meraki_compliance_webex_bot_token: "{{ compliance_webex_bot_token }}"
+meraki_compliance_webex_alert_email: "{{ compliance_webex_alert_email }}"
+meraki_compliance_webex_webhook_secret: "{{ compliance_webex_webhook_secret }}"
+
+# Security baseline checks
+security_baseline_enabled: true
+meraki_compliance_security_baseline_enabled: "{{ security_baseline_enabled }}"
+
+security_baseline_rules:
+  no_open_auth:
+    enabled: true
+    severity: "critical"
+    description: "Enabled SSIDs must not use open authentication"
+  minimum_encryption:
+    enabled: true
+    severity: "critical"
+    minimum: "wpa2"
+    allowed_values:
+      - "WPA2 only"
+      - "WPA3 Transition Mode"
+    description: "Enabled authenticated SSIDs must use an allowed wpaEncryptionMode"
+  guest_bandwidth_limits:
+    enabled: true
+    severity: "warning"
+    guest_ssid_pattern: "(?i)guest"
+    description: "Guest SSIDs must have bandwidth limits configured"
+meraki_compliance_security_baseline_rules: "{{ security_baseline_rules }}"
+
+# Group policy ACL audit checks
+group_policy_acl_audit_enabled: true
+meraki_compliance_group_policy_acl_audit_enabled: "{{ group_policy_acl_audit_enabled }}"
+
+group_policy_acl_rules:
+  custom_policies_require_acl:
+    enabled: true
+    severity: "warning"
+    description: "Custom group policy firewall settings should include at least one L3 or L7 ACL rule"
+  allow_any_any_l3:
+    enabled: true
+    severity: "critical"
+    description: "Group policy L3 ACLs must not include allow any/any rules"
+meraki_compliance_group_policy_acl_rules: "{{ group_policy_acl_rules }}"
