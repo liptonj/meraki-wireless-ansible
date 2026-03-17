@@ -124,7 +124,11 @@ jobs:
     name: Update group_vars with new SSID config
     runs-on: ubuntu-latest
     if: >-
-      (github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '') != ''
+      (github.event.inputs.ssid_name
+       || github.event.client_payload.ssid_name
+       || github.event.inputs.scope_ssid
+       || github.event.client_payload.scope_ssid
+       || '') != ''
 
     steps:
       - name: Checkout repository
@@ -140,7 +144,27 @@ jobs:
       - name: Install ruamel.yaml
         run: pip install "ruamel.yaml>=0.18"
 
+      - name: Resolve target SSID for config update
+        run: |
+          TARGET_SSID="${{ env.INPUT_SSID_NAME }}"
+
+          if [ -z "$TARGET_SSID" ]; then
+            TARGET_SSID="${{ env.INPUT_SCOPE_SSID }}"
+          fi
+
+          if [ "$TARGET_SSID" = "true" ] || [ "$TARGET_SSID" = "false" ]; then
+            TARGET_SSID=""
+          fi
+
+          if [ -z "$TARGET_SSID" ]; then
+            echo "::error::No SSID target was provided for config update."
+            exit 1
+          fi
+
+          echo "TARGET_SSID=$TARGET_SSID" >> "$GITHUB_ENV"
+
       - name: Validate inputs
+        if: ${{ env.INPUT_SSID_NAME != '' }}
         run: |
           AUTH="${{ env.INPUT_AUTH_MODE }}"
           PSK="${{ env.INPUT_PSK_SECRET }}"
@@ -151,13 +175,14 @@ jobs:
 
       - name: Update group_vars/meraki_orgs.yml
         env:
-          SSID_NAME:       ${{ env.INPUT_SSID_NAME }}
+          SSID_NAME:       ${{ env.TARGET_SSID }}
           AUTH_MODE:       ${{ env.INPUT_AUTH_MODE }}
           ENCRYPTION_MODE: ${{ env.INPUT_ENCRYPTION_MODE }}
           PSK_SECRET:      ${{ env.INPUT_PSK_SECRET }}
           BAND_SELECTION:  ${{ env.INPUT_BAND_SELECTION }}
           SSID_ENABLED:    ${{ env.INPUT_SSID_ENABLED }}
           SSID_VISIBLE:    ${{ env.INPUT_SSID_VISIBLE }}
+          UPDATE_ENABLED_ONLY: ${{ env.INPUT_SSID_NAME == '' && 'true' || 'false' }}
         run: python scripts/update_ssid_config.py
 
       - name: Commit updated group_vars
@@ -168,7 +193,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "group_vars/meraki_orgs.yml unchanged — nothing to commit."
           else
-            git commit -m "feat(ssids): add/update SSID '${{ env.INPUT_SSID_NAME }}' [run #${{ github.run_number }}] [skip ci]"
+            git commit -m "feat(ssids): add/update SSID '${{ env.TARGET_SSID }}' [run #${{ github.run_number }}] [skip ci]"
             git pull --rebase origin ${{ github.ref_name }}
             git push
           fi
@@ -180,7 +205,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| SSID Name | \`${{ env.INPUT_SSID_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| SSID Name | \`${{ env.TARGET_SSID }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Auth Mode | \`${{ env.INPUT_AUTH_MODE }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Encryption | \`${{ env.INPUT_ENCRYPTION_MODE }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| PSK Secret | \`${{ env.INPUT_PSK_SECRET }}\` |" >> $GITHUB_STEP_SUMMARY

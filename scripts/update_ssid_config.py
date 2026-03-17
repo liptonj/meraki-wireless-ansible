@@ -79,6 +79,22 @@ def get_env(key: str, default: str = "") -> str:
     return os.environ.get(key, default).strip()
 
 
+def update_existing_enabled_state(ssids: list, ssid_name: str, enabled: bool) -> None:
+    existing_entry = next((ssid for ssid in ssids if ssid.get("name") == ssid_name), None)
+    if existing_entry is None:
+        log.error("SSID '%s' was not found in %s.", ssid_name, GROUP_VARS_PATH)
+        sys.exit(1)
+
+    previous_enabled = existing_entry.get("enabled")
+    existing_entry["enabled"] = enabled
+    log.info(
+        "Updated existing SSID '%s' enabled state from %s to %s.",
+        ssid_name,
+        previous_enabled,
+        enabled,
+    )
+
+
 def build_ssid_entry(
     name: str,
     auth_mode: str,
@@ -160,6 +176,7 @@ def save_group_vars(path: str, data: dict, yaml: YAML) -> None:
 
 def main() -> None:
     ssid_name       = get_required_env("SSID_NAME")
+    update_enabled_only = get_env("UPDATE_ENABLED_ONLY", "false").lower() == "true"
     auth_mode       = get_env("AUTH_MODE",       "psk")
     encryption_mode = get_env("ENCRYPTION_MODE", "wpa3")
     psk_secret      = get_env("PSK_SECRET",      "none")
@@ -168,10 +185,23 @@ def main() -> None:
     visible         = get_env("SSID_VISIBLE",    "true").lower() == "true"
     min_bitrate     = 11  # fixed default; not exposed as a workflow input
 
-    # Guard: PSK mode requires a secret selection
-    if auth_mode == "psk" and psk_secret == "none":
+    # Guard: PSK mode requires a secret selection when writing a full SSID entry.
+    if not update_enabled_only and auth_mode == "psk" and psk_secret == "none":
         log.error("auth_mode is 'psk' but PSK_SECRET is 'none'. Select a saved PSK.")
         sys.exit(1)
+
+    data, yaml = load_group_vars(GROUP_VARS_PATH)
+
+    if "meraki_ssids" not in data or data["meraki_ssids"] is None:
+        data["meraki_ssids"] = []
+
+    ssids = data["meraki_ssids"]
+
+    if update_enabled_only:
+        update_existing_enabled_state(ssids, ssid_name, enabled)
+        save_group_vars(GROUP_VARS_PATH, data, yaml)
+        log.info("Done — SSID '%s' enabled state written to %s.", ssid_name, GROUP_VARS_PATH)
+        return
 
     log.info(
         "Building SSID entry — name='%s' auth=%s enc=%s psk=%s band='%s' enabled=%s visible=%s bitrate=%s",
@@ -190,12 +220,6 @@ def main() -> None:
         min_bitrate=min_bitrate,
     )
 
-    data, yaml = load_group_vars(GROUP_VARS_PATH)
-
-    if "meraki_ssids" not in data or data["meraki_ssids"] is None:
-        data["meraki_ssids"] = []
-
-    ssids = data["meraki_ssids"]
     existing_idx = next(
         (i for i, s in enumerate(ssids) if s.get("name") == ssid_name), None
     )
