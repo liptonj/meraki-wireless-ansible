@@ -122,6 +122,9 @@ The following SSID configuration fields were checked for compliance:
 - `minBitrate` - Minimum bitrate (Mbps)
 - `bandSelection` - Band selection mode
 - Group policy ACL posture:
+  - Seeded group policies must match the desired baseline in `group_vars/meraki_group_policies.yml` (rule-level, case-insensitive)
+  - L3 ACL rule action (allow/deny) drift is detected per rule by matching on destCidr + protocol + destPort
+  - Missing desired L3 rules and firewall settings changes are flagged as critical
   - Custom group policies should contain at least one L3 or L7 ACL rule
   - L3 ACLs must not contain `allow any/any` rules
 

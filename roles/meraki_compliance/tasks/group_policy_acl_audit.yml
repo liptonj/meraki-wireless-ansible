@@ -30,6 +30,23 @@
     - group-policy-acl
     - gather
 
+- name: Resolve desired group policies for this network
+  ansible.builtin.set_fact:
+    desired_group_policy_configs: >-
+      {{
+        meraki_desired_group_policies
+        | default([])
+        | selectattr('network_name', 'equalto', inventory_hostname)
+        | map(attribute='policies')
+        | first
+        | default([])
+      }}
+  changed_when: false
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+
 - name: Evaluate group policy ACL posture
   ansible.builtin.set_fact:
     network_compliance: >-
@@ -43,12 +60,77 @@
     label: "{{ item.name | default('Group Policy ' ~ (item.groupPolicyId | default('unknown') | string)) }}"
   vars:
     current_group_policy: "{{ item }}"
+    desired_group_policy: >-
+      {{
+        desired_group_policy_configs
+        | default([])
+        | selectattr('name', 'equalto', current_group_policy.name | default(''))
+        | first
+        | default({})
+      }}
     group_policy_firewall: "{{ current_group_policy.firewallAndTrafficShaping | default({}) }}"
     group_policy_firewall_settings: "{{ group_policy_firewall.settings | default('network default') }}"
     l3_firewall_rules: "{{ group_policy_firewall.l3FirewallRules | default([]) }}"
     l7_firewall_rules: "{{ group_policy_firewall.l7FirewallRules | default([]) }}"
+    desired_fw: "{{ desired_group_policy.firewallAndTrafficShaping | default({}) }}"
+    desired_fw_settings: "{{ desired_fw.settings | default('') }}"
+    desired_l3_rules: "{{ desired_fw.l3FirewallRules | default([]) }}"
     group_policy_violations: >-
       {%- set ns = namespace(violations=[]) -%}
+      {%- if meraki_compliance_group_policy_acl_rules.desired_state_match.enabled | default(true)
+            and desired_group_policy | length > 0 -%}
+      {%- if desired_fw_settings | length > 0
+            and (desired_fw_settings | lower) != (group_policy_firewall_settings | lower) -%}
+      {%- set ns.violations = ns.violations + [{
+            'group_policy_name': current_group_policy.name | default('Unknown'),
+            'group_policy_id': current_group_policy.groupPolicyId | default('unknown'),
+            'rule': 'group_policy_settings_drift',
+            'severity': meraki_compliance_group_policy_acl_rules.desired_state_match.severity | default('critical'),
+            'message': 'Group policy "' ~ (current_group_policy.name | default('Unknown')) ~ '" firewall settings changed',
+            'current_value': group_policy_firewall_settings,
+            'expected': desired_fw_settings
+          }] -%}
+      {%- endif -%}
+      {%- for d_rule in desired_l3_rules -%}
+      {%- set d_cidr = d_rule.destCidr | default('any') | string | lower -%}
+      {%- set d_proto = d_rule.protocol | default('any') | string | lower -%}
+      {%- set d_port = d_rule.destPort | default('any') | string | lower -%}
+      {%- set d_policy = d_rule.policy | default('') | string | lower -%}
+      {%- set d_comment = d_rule.comment | default('') -%}
+      {%- set ns_match = namespace(found=false) -%}
+      {%- for l_rule in l3_firewall_rules -%}
+      {%- set l_cidr = l_rule.destCidr | default('any') | string | lower -%}
+      {%- set l_proto = l_rule.protocol | default('any') | string | lower -%}
+      {%- set l_port = l_rule.destPort | default('any') | string | lower -%}
+      {%- set l_policy = l_rule.policy | default('') | string | lower -%}
+      {%- if d_cidr == l_cidr and d_proto == l_proto and d_port == l_port -%}
+      {%- set ns_match.found = true -%}
+      {%- if d_policy != l_policy -%}
+      {%- set ns.violations = ns.violations + [{
+            'group_policy_name': current_group_policy.name | default('Unknown'),
+            'group_policy_id': current_group_policy.groupPolicyId | default('unknown'),
+            'rule': 'group_policy_l3_rule_policy_drift',
+            'severity': meraki_compliance_group_policy_acl_rules.desired_state_match.severity | default('critical'),
+            'message': 'Group policy "' ~ (current_group_policy.name | default('Unknown')) ~ '" L3 rule action changed — ' ~ d_comment,
+            'current_value': l_policy ~ ' ' ~ l_proto ~ ' to ' ~ l_cidr ~ ':' ~ l_port,
+            'expected': d_policy ~ ' ' ~ d_proto ~ ' to ' ~ d_cidr ~ ':' ~ d_port
+          }] -%}
+      {%- endif -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- if not ns_match.found -%}
+      {%- set ns.violations = ns.violations + [{
+            'group_policy_name': current_group_policy.name | default('Unknown'),
+            'group_policy_id': current_group_policy.groupPolicyId | default('unknown'),
+            'rule': 'group_policy_l3_rule_missing',
+            'severity': meraki_compliance_group_policy_acl_rules.desired_state_match.severity | default('critical'),
+            'message': 'Group policy "' ~ (current_group_policy.name | default('Unknown')) ~ '" is missing desired L3 rule — ' ~ d_comment,
+            'current_value': 'rule not found',
+            'expected': d_policy ~ ' ' ~ d_proto ~ ' to ' ~ d_cidr ~ ':' ~ d_port
+          }] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- endif -%}
       {%- if meraki_compliance_group_policy_acl_rules.custom_policies_require_acl.enabled | default(true)
             and group_policy_firewall_settings == 'custom'
             and l3_firewall_rules | length == 0
@@ -101,6 +183,50 @@
   when:
     - current_group_policies.meraki_response is defined
     - current_group_policies.meraki_response | length > 0
+  tags:
+    - compliance
+    - security
+    - group-policy-acl
+    - compare
+
+- name: Record missing desired group policies
+  ansible.builtin.set_fact:
+    network_compliance: >-
+      {{
+        network_compliance | combine({
+          'group_policies': network_compliance.group_policies + [missing_group_policy_result]
+        })
+      }}
+  loop: "{{ desired_group_policy_configs | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    current_group_policy: >-
+      {{
+        current_group_policies.meraki_response
+        | default([])
+        | selectattr('name', 'equalto', item.name | default(''))
+        | first
+        | default({})
+      }}
+    missing_group_policy_result:
+      name: "{{ item.name | default('Unknown') }}"
+      groupPolicyId: "missing"
+      firewall_settings: "{{ item.firewallAndTrafficShaping.settings | default('unknown') }}"
+      l3_rule_count: "{{ item.firewallAndTrafficShaping.l3FirewallRules | default([]) | length }}"
+      l7_rule_count: "{{ item.firewallAndTrafficShaping.l7FirewallRules | default([]) | length }}"
+      compliant: false
+      violations:
+        - group_policy_name: "{{ item.name | default('Unknown') }}"
+          group_policy_id: "missing"
+          rule: "group_policy_missing_from_network"
+          severity: "{{ meraki_compliance_group_policy_acl_rules.desired_state_match.severity | default('critical') }}"
+          message: "Group policy \"{{ item.name | default('Unknown') }}\" is missing from the network"
+          current_value: "missing"
+          expected: "Present in Meraki and match group_vars/meraki_group_policies.yml"
+  when:
+    - meraki_compliance_group_policy_acl_rules.desired_state_match.enabled | default(true)
+    - current_group_policy | length == 0
   tags:
     - compliance
     - security

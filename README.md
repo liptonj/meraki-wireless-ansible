@@ -25,7 +25,6 @@ baselines/           Saved live snapshots for drift history
 docs/                Getting started, architecture, compliance, workflow docs
 scripts/             Local setup, smoke tests, YAML update helpers, template validation
 Dashboard Workflow/  Meraki Dashboard workflow export
-slides/              Presentation assets
 ```
 
 `Dashboard Workflow/workflow.json` is intentionally kept in the repo so the Meraki Dashboard workflow can be recreated or re-imported.

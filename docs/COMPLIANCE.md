@@ -66,6 +66,10 @@ The compliance playbook now also audits network group policies:
 |------|----------|-------------|
 | `group_policy_custom_without_acl` | Warning | Custom group policy firewall settings should include at least one L3 or L7 ACL rule |
 | `group_policy_allow_any_any` | Critical | Group policy L3 ACLs must not contain `allow any/any` rules |
+| `group_policy_settings_drift` | Critical | Firewall settings mode (e.g. custom) must match desired baseline |
+| `group_policy_l3_rule_policy_drift` | Critical | L3 ACL rule action (allow/deny) must match desired baseline |
+| `group_policy_l3_rule_missing` | Critical | Desired L3 ACL rules must exist on the live group policy |
+| `group_policy_missing_from_network` | Critical | Seeded group policies must exist on the target Meraki network |
 
 Run just the group policy portion when needed:
 

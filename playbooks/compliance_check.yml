@@ -29,6 +29,11 @@
       when: inventory_hostname == compliance_aggregator_host
       tags: always
 
+    - name: Load desired group policy definitions
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/meraki_group_policies.yml"
+      tags: always
+
   roles:
     - role: meraki_compliance
       vars:

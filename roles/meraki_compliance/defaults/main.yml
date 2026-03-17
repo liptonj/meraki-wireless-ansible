@@ -88,4 +88,8 @@ group_policy_acl_rules:
     enabled: true
     severity: "critical"
     description: "Group policy L3 ACLs must not include allow any/any rules"
+  desired_state_match:
+    enabled: true
+    severity: "critical"
+    description: "Seeded group policies must match the desired ACL baseline (rule-level, case-insensitive)"
 meraki_compliance_group_policy_acl_rules: "{{ group_policy_acl_rules }}"

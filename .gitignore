@@ -72,6 +72,7 @@ temp/
 # Presentation files
 *.ppt
 *.pptx
+slides/
 
 # OS
 Thumbs.db
