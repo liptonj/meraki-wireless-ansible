@@ -18,7 +18,7 @@ on:
       dry_run:
         description: "Run in check mode (no live changes)"
         required: true
-        default: true
+        default: false
         type: boolean
       target_networks:
         description: "Comma-separated network names (required for configure_network.yml, remove_ssid.yml, and group_policy_management.yml)"
@@ -35,7 +35,7 @@ on:
       commit_changes:
         description: "Commit baseline/network-state file changes back to repo"
         required: true
-        default: false
+        default: true
         type: boolean
   repository_dispatch:
     types:
