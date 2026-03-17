@@ -225,17 +225,28 @@
         - alerting
         - github
 
-    - name: Build Webex card violation details
+    - name: Build Webex card details
       ansible.builtin.set_fact:
+        webex_compliance_status: "{{ 'FAIL' if (compliance_failed | default(false) | bool) else 'PASS' }}"
         webex_primary_network_name: >-
           {{
-            compliance_results.network_details
-            | default([])
-            | selectattr('compliant', 'equalto', false)
-            | map(attribute='network_name')
-            | list
-            | first
-            | default('Meraki Dashboard')
+            (
+              compliance_results.network_details
+              | default([])
+              | selectattr('compliant', 'equalto', false)
+              | map(attribute='network_name')
+              | list
+              | first
+            )
+            | default(
+              compliance_results.network_details
+              | default([])
+              | map(attribute='network_name')
+              | list
+              | first
+              | default('Meraki Dashboard'),
+              true
+            )
           }}
         webex_primary_dashboard_url: >-
           {{
@@ -248,17 +259,19 @@
               | list
               | first
             )
-            | default('https://dashboard.meraki.com', true)
+            | default(
+              compliance_results.network_details
+              | default([])
+              | map(attribute='network_dashboard_url')
+              | reject('equalto', '')
+              | list
+              | first
+              | default('https://dashboard.meraki.com'),
+              true
+            )
           }}
         webex_card_checks_text: |
-          {% set non_compliant_networks = compliance_results.network_details
-             | default([])
-             | selectattr('compliant', 'equalto', false)
-             | list %}
-          {% if non_compliant_networks | length == 0 %}
-          ✅ No non-compliant networks found.
-          {% else %}
-          {% for network in non_compliant_networks %}
+          {% for network in compliance_results.network_details | default([]) %}
           {{ network.network_name }}:
           - Network compliance: {{ '✅ PASS' if network.compliant else '❌ FAIL' }}
           - SSID drift check: {{ '✅ PASS' if (network.drift_count | default(0) | int) == 0 else '❌ FAIL (' ~ (network.drift_count | default(0) | string) ~ ' drifted SSID(s))' }}
@@ -287,14 +300,13 @@
              | length %}
           - Group policy ACL check: {{ '✅ PASS' if group_policy_acl_failures == 0 else '❌ FAIL (' ~ (group_policy_acl_failures | string) ~ ')' }}
           {% endfor %}
-          {% endif %}
         webex_card_failed_text: |
           {% set non_compliant_networks = compliance_results.network_details
              | default([])
              | selectattr('compliant', 'equalto', false)
              | list %}
           {% if non_compliant_networks | length == 0 %}
-          No non-compliant network details were captured.
+          ✅ All networks are compliant.
           {% else %}
           {% for network in non_compliant_networks %}
           Network: {{ network.network_name }} ({{ network.network_id }})
@@ -310,14 +322,13 @@
           - 🔴 {{ violation.message }} ({{ violation.current_value }} -> {{ violation.expected }})
           {% endfor %}
           {% else %}
-          - ✅ No critical SSID violations listed.
+          - ✅ No critical violations.
           {% endif %}
           {% endfor %}
           {% endif %}
       when:
         - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
-        - compliance_failed | default(false) | bool
       tags:
         - alerting
         - webex
@@ -331,7 +342,9 @@
           version: "1.0"
           body:
             - type: "TextBlock"
-              text: "Wireless Compliance Violation"
+              text: >-
+                {{ '❌' if webex_compliance_status == 'FAIL' else '✅' }}
+                Wireless Compliance Check — {{ webex_compliance_status }}
               weight: "bolder"
               size: "medium"
             - type: "TextBlock"
@@ -340,10 +353,16 @@
               isSubtle: true
             - type: "TextBlock"
               text: >-
+                Networks checked: {{ compliance_results.networks_checked | default(0) }}.
+                {% if webex_compliance_status == 'FAIL' %}
                 {{ compliance_results.networks_non_compliant | default(0) }} network(s)
                 and {{ compliance_results.ssids_non_compliant | default(0) }} SSID(s)
                 are non-compliant. Group policy ACL findings:
                 {{ compliance_results.group_policies_non_compliant | default(0) }}.
+                {% else %}
+                All {{ compliance_results.networks_compliant | default(0) }} network(s)
+                and {{ compliance_results.ssids_compliant | default(0) }} SSID(s) are compliant.
+                {% endif %}
               wrap: true
             - type: "TextBlock"
               text: "Checks"
@@ -354,7 +373,7 @@
               wrap: true
               size: "small"
             - type: "TextBlock"
-              text: "Failed Items"
+              text: "{{ 'Failed Items' if webex_compliance_status == 'FAIL' else 'Details' }}"
               weight: "bolder"
               spacing: "small"
             - type: "TextBlock"
@@ -362,7 +381,12 @@
               wrap: true
               size: "small"
             - type: "TextBlock"
-              text: "Remediation: ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --tags group-policy-acl"
+              text: >-
+                {% if webex_compliance_status == 'FAIL' %}
+                Remediation: ansible-playbook playbooks/compliance_check.yml -i inventory/production.yml --tags group-policy-acl
+                {% else %}
+                No action required.
+                {% endif %}
               wrap: true
               size: "small"
           actions:
@@ -372,13 +396,12 @@
       when:
         - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
-        - compliance_failed | default(false) | bool
       tags:
         - alerting
         - webex
         - webex-bot
 
-    - name: Send Webex Teams notification for compliance violation
+    - name: Send Webex Teams notification
       ansible.builtin.uri:
         url: "{{ compliance_webex_webhook_url }}"
         method: POST
@@ -387,7 +410,7 @@
         body_format: json
         body:
           markdown: |
-            Wireless Compliance Violation detected. See adaptive card for details.
+            Wireless Compliance Check — {{ webex_compliance_status }}.
             Open dashboard URL: {{ webex_primary_dashboard_url }}
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
@@ -397,14 +420,14 @@
       delegate_to: localhost
       when:
         - inventory_hostname == compliance_aggregator_host
-        - compliance_failed | default(false) | bool
+        - compliance_results is defined
         - compliance_webex_alert_enabled | default(false) | bool
         - compliance_webex_webhook_url | default('') | length > 0
       tags:
         - alerting
         - webex
 
-    - name: Send Webex Bot adaptive card for compliance violation
+    - name: Send Webex Bot adaptive card
       ansible.builtin.uri:
         url: "https://webexapis.com/v1/messages"
         method: POST
@@ -415,7 +438,7 @@
         body:
           toPersonEmail: "{{ compliance_webex_alert_email }}"
           markdown: |
-            Wireless Compliance Violation detected. See adaptive card for details.
+            Wireless Compliance Check — {{ webex_compliance_status }}.
             Open dashboard URL: {{ webex_primary_dashboard_url }}
           attachments:
             - contentType: "application/vnd.microsoft.card.adaptive"
@@ -426,7 +449,7 @@
       no_log: true
       when:
         - inventory_hostname == compliance_aggregator_host
-        - compliance_failed | default(false) | bool
+        - compliance_results is defined
         - compliance_webex_bot_enabled | default(false) | bool
         - compliance_webex_bot_token | default('') | length > 0
         - compliance_webex_alert_email | default('') | length > 0
@@ -435,11 +458,12 @@
         - webex
         - webex-bot
 
-    - name: Compliance check passed - no alerts needed
+    - name: Display compliance check result
       ansible.builtin.debug:
-        msg: "All networks are compliant. No alerts triggered."
+        msg: >-
+          Compliance check {{ webex_compliance_status | default('complete') }}.
+          {{ 'Alerts sent via Webex.' if (compliance_webex_bot_enabled | default(false) | bool) else 'No Webex alerts configured.' }}
       when:
         - inventory_hostname == compliance_aggregator_host
         - compliance_results is defined
-        - not (compliance_failed | default(false) | bool)
       tags: always
