@@ -253,7 +253,7 @@ jobs:
           }
 
       - name: Upload secrets baseline
-        if: always()
+        if: ${{ always() && hashFiles('.secrets.baseline') != '' }}
         uses: actions/upload-artifact@v6
         with:
           name: secrets-baseline
