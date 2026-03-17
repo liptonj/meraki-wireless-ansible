@@ -14,7 +14,7 @@ meraki_ssids:
 - name: "Corp-Secure"
   enabled: true
   authMode: "psk"
-  encryptionMode: "wpa2"
+  encryptionMode: "wpa"
   minBitrate: 11
   bandSelection: "Dual band operation"
   perClientBandwidthLimitUp: 0
@@ -22,6 +22,7 @@ meraki_ssids:
   visible: true
   availableOnAllAps: true
   psk: "{{ lookup('env', 'CORP_SECURE_PSK') | default(vault_corp_secure_psk | default(''), true) }}"
+  wpaEncryptionMode: "WPA2 only"
 - name: "Corp-Guest"
   enabled: true
   authMode: "open"
