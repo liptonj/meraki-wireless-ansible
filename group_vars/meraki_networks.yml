@@ -4,7 +4,7 @@
 #
 # network_name must match the Meraki network name exactly.
 # Networks not listed here will have no desired config to compare against.
-# Last updated: 2026-03-17T02:13:04Z via configure_network.yml
+# Last updated: 2026-03-17T21:00:56Z via configure_network.yml
 meraki_desired_ssids:
   - network_name: Site-A
     ssids:
@@ -32,10 +32,11 @@ meraki_desired_ssids:
       bandSelection: Dual band operation
       broadcast: true
       enabled: true
-      encryptionMode: wpa3
+      encryptionMode: wpa
       minBitrate: 11
       name: test
       visible: true
+      wpaEncryptionMode: WPA3 Transition Mode
     - authMode: open
       bandSelection: Dual band operation
       broadcast: true
@@ -51,5 +52,14 @@ meraki_desired_ssids:
       encryptionMode: wpa
       minBitrate: 11
       name: Corp-Secure
+      visible: true
+      wpaEncryptionMode: WPA2 only
+    - authMode: psk
+      bandSelection: Dual band operation
+      broadcast: true
+      enabled: true
+      encryptionMode: wpa
+      minBitrate: 11
+      name: Corp-Secur
       visible: true
       wpaEncryptionMode: WPA2 only
