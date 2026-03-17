@@ -417,6 +417,7 @@
               content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
+      check_mode: false
       delegate_to: localhost
       when:
         - inventory_hostname == compliance_aggregator_host
@@ -445,6 +446,7 @@
               content: "{{ webex_compliance_card | to_json | from_json }}"
         status_code: 200
         validate_certs: true
+      check_mode: false
       delegate_to: localhost
       no_log: true
       when:

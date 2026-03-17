@@ -54,11 +54,11 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   INPUT_PLAYBOOK: ${{ github.event.inputs.playbook || github.event.client_payload.playbook || '' }}
-  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
   INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
   INPUT_SCOPE_SSID: ${{ github.event.inputs.scope_ssid || github.event.client_payload.scope_ssid || '' }}
   INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
-  INPUT_COMMIT_CHANGES: ${{ github.event.inputs.commit_changes || (github.event.client_payload.commit_changes != null && format('{0}', github.event.client_payload.commit_changes)) || 'false' }}
+  INPUT_COMMIT_CHANGES: ${{ github.event.inputs.commit_changes || (toJSON(github.event.client_payload.commit_changes) != 'null' && format('{0}', github.event.client_payload.commit_changes)) || 'false' }}
 
 concurrency:
   group: playbook-dispatch-${{ github.event.action || github.event.inputs.playbook || github.run_id }}
@@ -233,6 +233,8 @@ jobs:
           RADIUS_ACCOUNTING_SERVER_HOST: ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
           RADIUS_ACCOUNTING_SERVER_SECRET: ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEBEX_BOT_TOKEN: ${{ secrets.WEBEX_BOT_TOKEN }}
+          WEBEX_ALERT_EMAIL: ${{ secrets.WEBEX_ALERT_EMAIL }}
         run: |
           PLAYBOOK="${{ steps.select.outputs.playbook }}"
           EXTRA_ARGS=()
@@ -274,7 +276,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add baselines/ group_vars/meraki_networks.yml
+          git add baselines/ group_vars/meraki_networks.yml reports/
 
           if git diff --cached --quiet; then
             echo "No baseline/state file changes to commit."
@@ -287,6 +289,15 @@ jobs:
       - name: Remove vault password file
         if: always()
         run: rm -f .vault_pass
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: compliance-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 90
+          if-no-files-found: ignore
 
       - name: Write summary
         if: always()
@@ -309,7 +320,7 @@ jobs:
     needs: [run-playbook]
     if: >-
       needs.run-playbook.result == 'success'
-      && (github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && (github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
       && (github.event.inputs.playbook || github.event.client_payload.playbook || github.event.action || '') != ''
       && (
         (github.event.inputs.playbook || github.event.client_payload.playbook || '') == 'group_policy_management.yml'
