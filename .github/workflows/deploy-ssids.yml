@@ -356,6 +356,9 @@ jobs:
 
           if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
             EXTRA_ARGS="$EXTRA_ARGS -e scope_ssid=${EFFECTIVE_SCOPE_SSID}"
+            if [ -z "${{ env.INPUT_SSID_NAME }}" ]; then
+              EXTRA_ARGS="$EXTRA_ARGS -e scope_ssid_enabled=${{ env.INPUT_SSID_ENABLED }}"
+            fi
           fi
 
           ansible-playbook playbooks/ssid_management.yml \

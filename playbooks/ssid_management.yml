@@ -44,6 +44,15 @@
       when: scope_ssid is defined and scope_ssid | length > 0
       tags: always
 
+    - name: Override enabled state for scoped SSID during deploy
+      ansible.builtin.set_fact:
+        meraki_ssid_configs: "{{ meraki_ssid_configs | map('combine', {'enabled': scope_ssid_enabled | bool}) | list }}"
+      when:
+        - scope_ssid is defined
+        - scope_ssid | length > 0
+        - scope_ssid_enabled is defined
+      tags: always
+
   roles:
     - role: meraki_ssid
 
