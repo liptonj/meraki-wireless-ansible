@@ -54,11 +54,11 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   INPUT_PLAYBOOK: ${{ github.event.inputs.playbook || github.event.client_payload.playbook || '' }}
-  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+  INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'false' }}
   INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
   INPUT_SCOPE_SSID: ${{ github.event.inputs.scope_ssid || github.event.client_payload.scope_ssid || '' }}
   INPUT_SSID_NAME: ${{ github.event.inputs.ssid_name || github.event.client_payload.ssid_name || '' }}
-  INPUT_COMMIT_CHANGES: ${{ github.event.inputs.commit_changes || (toJSON(github.event.client_payload.commit_changes) != 'null' && format('{0}', github.event.client_payload.commit_changes)) || 'false' }}
+  INPUT_COMMIT_CHANGES: ${{ github.event.inputs.commit_changes || (toJSON(github.event.client_payload.commit_changes) != 'null' && format('{0}', github.event.client_payload.commit_changes)) || 'true' }}
 
 concurrency:
   group: playbook-dispatch-${{ github.event.action || github.event.inputs.playbook || github.run_id }}
@@ -320,7 +320,7 @@ jobs:
     needs: [run-playbook]
     if: >-
       needs.run-playbook.result == 'success'
-      && (github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'true') != 'true'
+      && (github.event.inputs.dry_run || (toJSON(github.event.client_payload.dry_run) != 'null' && format('{0}', github.event.client_payload.dry_run)) || 'false') != 'true'
       && (github.event.inputs.playbook || github.event.client_payload.playbook || github.event.action || '') != ''
       && (
         (github.event.inputs.playbook || github.event.client_payload.playbook || '') == 'group_policy_management.yml'
