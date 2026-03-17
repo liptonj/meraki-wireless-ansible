@@ -359,6 +359,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy]
     if: needs.deploy.result == 'success'
+    env:
+      INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || (github.event.client_payload.dry_run != null && format('{0}', github.event.client_payload.dry_run)) || 'true' }}
+      INPUT_TARGET_NETWORKS: ${{ github.event.inputs.target_networks || github.event.client_payload.target_networks || '' }}
 
     steps:
       - name: Skip compliance for dry-run deploys
