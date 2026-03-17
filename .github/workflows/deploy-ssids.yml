@@ -362,10 +362,10 @@ jobs:
           RADIUS_ACCOUNTING_SERVER_HOST:    ${{ secrets.RADIUS_ACCOUNTING_SERVER_HOST }}
           RADIUS_ACCOUNTING_SERVER_SECRET:  ${{ secrets.RADIUS_ACCOUNTING_SERVER_SECRET }}
         run: |
-          EXTRA_ARGS="--vault-password-file .vault_pass"
+          EXTRA_ARGS=("--vault-password-file" ".vault_pass")
           if [ "${{ env.INPUT_DRY_RUN }}" = "true" ]; then
             echo "Running in CHECK MODE (dry run — no Meraki changes)"
-            EXTRA_ARGS="$EXTRA_ARGS --check --diff"
+            EXTRA_ARGS+=("--check" "--diff")
           else
             echo "Running in LIVE MODE — SSIDs will be configured on Meraki"
           fi
@@ -380,15 +380,15 @@ jobs:
           fi
 
           if [ -n "$EFFECTIVE_SCOPE_SSID" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS -e scope_ssid=${EFFECTIVE_SCOPE_SSID}"
+            EXTRA_ARGS+=("-e" "scope_ssid=${EFFECTIVE_SCOPE_SSID}")
             if [ -z "${{ env.INPUT_SSID_NAME }}" ]; then
-              EXTRA_ARGS="$EXTRA_ARGS -e scope_ssid_enabled=${{ env.INPUT_SSID_ENABLED }}"
+              EXTRA_ARGS+=("-e" "scope_ssid_enabled=${{ env.INPUT_SSID_ENABLED }}")
             fi
           fi
 
           ansible-playbook playbooks/ssid_management.yml \
             -i inventory/production.yml \
-            $EXTRA_ARGS
+            "${EXTRA_ARGS[@]}"
 
       - name: Remove vault password file
         if: always()
