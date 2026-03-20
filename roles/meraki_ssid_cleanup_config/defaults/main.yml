@@ -1,0 +1,6 @@
+---
+# Defaults for SSID configuration cleanup role
+# These values are inherited from the global configuration but can be overridden
+
+meraki_ssid_cleanup_backup: true
+meraki_ssid_cleanup_validate_yaml: true

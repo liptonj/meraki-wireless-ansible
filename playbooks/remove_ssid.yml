@@ -1,6 +1,10 @@
 ---
 # SSID Removal Playbook
 # Resets a named SSID slot back to an unconfigured state across one or more Meraki networks.
+# Also cleans up SSID references from configuration files:
+#   - group_vars/meraki_orgs.yml (deployment configuration)
+#   - group_vars/meraki_networks.yml (compliance desired state)
+#   - baselines/<network_id>/ssids.yml (snapshot files)
 #
 # Usage:
 #   ansible-playbook playbooks/remove_ssid.yml -i inventory/production.yml \
@@ -16,6 +20,7 @@
   serial: 1
   gather_facts: false
   become: false
+  ignore_errors: true  # Continue even if SSID not found
 
   roles:
     - role: meraki_ssid_remove
@@ -24,8 +29,31 @@
     - name: SSID removal summary
       ansible.builtin.debug:
         msg: |
+          {% if meraki_ssid_remove_result is defined and meraki_ssid_remove_result is success %}
           SSID removal complete!
           Organization: {{ meraki_org_name }} ({{ meraki_org_id }})
           Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
           Removed SSID: {{ meraki_remove_ssid_name }}
+          {% else %}
+          SSID "{{ meraki_remove_ssid_name }}" not found in network {{ meraki_network_name_resolved }}.
+          Will still clean up configuration files.
+          {% endif %}
+      tags: always
+
+- name: Cleanup SSID Configuration Files
+  hosts: meraki_networks
+  gather_facts: true
+  become: false
+
+  roles:
+    - role: meraki_ssid_cleanup_config
+
+  post_tasks:
+    - name: Configuration cleanup summary
+      ansible.builtin.debug:
+        msg: |
+          Configuration files cleaned up for SSID: {{ meraki_remove_ssid_name }}
+          - Removed from group_vars/meraki_orgs.yml (deployment config)
+          - Removed from group_vars/meraki_networks.yml (compliance desired state)
+          - Removed from baselines/{{ meraki_network_id }}/ssids.yml (if exists)
       tags: always

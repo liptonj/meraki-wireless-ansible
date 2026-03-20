@@ -1,0 +1,127 @@
+---
+# Cleanup SSID references from configuration files after SSID removal
+# This role removes SSID entries from:
+# - group_vars/meraki_orgs.yml (deployment config)
+# - group_vars/meraki_networks.yml (compliance desired state)
+# - baselines/<network_id>/ssids.yml (snapshot files)
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - meraki_remove_ssid_name is defined
+      - meraki_remove_ssid_name | string | trim | length > 0
+      - meraki_network_name_resolved is defined
+      - meraki_network_id is defined
+    fail_msg: "Missing required variables for config cleanup"
+    quiet: true
+  tags:
+    - ssid
+    - cleanup
+    - validate
+
+- name: Check if venv Python exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../venv/bin/python3"
+  register: venv_python_stat
+  delegate_to: localhost
+  tags:
+    - ssid
+    - cleanup
+
+- name: Detect Python interpreter (prefer venv)
+  ansible.builtin.set_fact:
+    python_interpreter: "{{ playbook_dir }}/../venv/bin/python3"
+  when: venv_python_stat.stat.exists
+  delegate_to: localhost
+  tags:
+    - ssid
+    - cleanup
+
+- name: Use system Python if venv not available
+  ansible.builtin.set_fact:
+    python_interpreter: "python3"
+  when: not venv_python_stat.stat.exists
+  delegate_to: localhost
+  tags:
+    - ssid
+    - cleanup
+
+- name: Set cleanup file paths
+  ansible.builtin.set_fact:
+    meraki_orgs_config_path: "{{ playbook_dir }}/../group_vars/meraki_orgs.yml"
+    meraki_networks_config_path: "{{ playbook_dir }}/../group_vars/meraki_networks.yml"
+    meraki_baseline_path: "{{ playbook_dir }}/../baselines/{{ meraki_network_id }}/ssids.yml"
+    cleanup_script_path: "{{ playbook_dir }}/../scripts/cleanup_ssid_config.py"
+  tags:
+    - ssid
+    - cleanup
+
+- name: Ensure cleanup script exists and is executable
+  ansible.builtin.file:
+    path: "{{ cleanup_script_path }}"
+    mode: '0755'
+  delegate_to: localhost
+  tags:
+    - ssid
+    - cleanup
+
+- name: Run SSID configuration cleanup script
+  ansible.builtin.command:
+    cmd: >
+      {{ python_interpreter }} {{ cleanup_script_path }}
+      --ssid-name "{{ meraki_remove_ssid_name }}"
+      --network-name "{{ meraki_network_name_resolved }}"
+      --network-id "{{ meraki_network_id }}"
+      --orgs-config "{{ meraki_orgs_config_path }}"
+      --networks-config "{{ meraki_networks_config_path }}"
+      --baseline-path "{{ meraki_baseline_path }}"
+      {{ '--check-mode' if ansible_check_mode else '' }}
+  register: cleanup_result
+  delegate_to: localhost
+  run_once: true
+  changed_when: cleanup_result.rc == 0
+  failed_when: false
+  tags:
+    - ssid
+    - cleanup
+
+- name: Parse cleanup script results
+  ansible.builtin.set_fact:
+    cleanup_data: "{{ cleanup_result.stdout | from_yaml }}"
+  when: cleanup_result.stdout is defined and cleanup_result.stdout | length > 0
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - ssid
+    - cleanup
+
+- name: Display cleanup results
+  ansible.builtin.debug:
+    msg: |
+      SSID Configuration Cleanup Results:
+      SSID Name: {{ meraki_remove_ssid_name }}
+      Network: {{ meraki_network_name_resolved }} ({{ meraki_network_id }})
+      Changed: {{ cleanup_data.changed | default(false) }}
+      Files Updated: {{ cleanup_data.files_updated | default([]) | join(', ') }}
+      Messages:
+      {% for msg in cleanup_data.messages | default([]) %}
+        - {{ msg }}
+      {% endfor %}
+  when: cleanup_data is defined
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - ssid
+    - cleanup
+
+- name: Fail if cleanup script encountered errors
+  ansible.builtin.fail:
+    msg: "Cleanup script failed. See messages above for details."
+  when:
+    - cleanup_result.rc != 0
+    - not ansible_check_mode
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - ssid
+    - cleanup
